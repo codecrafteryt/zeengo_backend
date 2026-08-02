@@ -211,6 +211,11 @@ erDiagram
 
 ---
 
+## Related team docs
+
+- [`FOLDER_STRUCTURE.md`](./FOLDER_STRUCTURE.md) — domain folders vs dashboard / app / shared
+- [`API_REFERENCE.md`](./API_REFERENCE.md) — all 111 APIs, roles, bodies, JWT cheat-sheet
+
 ## Out of scope for this backend repo
 
 - React/Vite dashboard UI and Flutter app (consume OpenAPI only).
