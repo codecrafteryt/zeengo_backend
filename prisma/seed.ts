@@ -4,30 +4,73 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
-  const adminEmail =
-    process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@zeengo.com';
-  const adminPassword =
-    process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin123!';
+  // Shared demo password for all seeded staff roles
+  const demoPassword =
+    process.env.SEED_STAFF_PASSWORD?.trim() ||
+    process.env.SEED_ADMIN_PASSWORD?.trim() ||
+    '1234567';
+  const passwordHash = await argon2.hash(demoPassword);
 
-  const passwordHash = await argon2.hash(adminPassword);
+  const staffAccounts: Array<{
+    email: string;
+    fullName: string;
+    role: StaffRole;
+  }> = [
+    {
+      email: process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@zeengo.com',
+      fullName: 'Zeengo Admin',
+      role: StaffRole.admin,
+    },
+    {
+      email: 'ops@zeengo.com',
+      fullName: 'Ops Manager',
+      role: StaffRole.ops_manager,
+    },
+    {
+      email: 'splizer@zeengo.com',
+      fullName: 'Splizer User',
+      role: StaffRole.splizer,
+    },
+    {
+      email: 'driver@zeengo.com',
+      fullName: 'Demo Driver',
+      role: StaffRole.driver,
+    },
+    {
+      email: 'support@zeengo.com',
+      fullName: 'Support Agent',
+      role: StaffRole.support,
+    },
+  ];
 
-  const admin = await prisma.staffUser.upsert({
-    where: { email: adminEmail },
-    update: {
-      fullName: 'Zeengo Admin',
-      passwordHash,
-      role: StaffRole.admin,
-      isActive: true,
-      deletedAt: null,
-    },
-    create: {
-      fullName: 'Zeengo Admin',
-      email: adminEmail,
-      passwordHash,
-      role: StaffRole.admin,
-      isActive: true,
-    },
-  });
+  let admin = null as Awaited<ReturnType<typeof prisma.staffUser.upsert>> | null;
+
+  for (const account of staffAccounts) {
+    const user = await prisma.staffUser.upsert({
+      where: { email: account.email },
+      update: {
+        fullName: account.fullName,
+        passwordHash,
+        role: account.role,
+        isActive: true,
+        deletedAt: null,
+      },
+      create: {
+        fullName: account.fullName,
+        email: account.email,
+        passwordHash,
+        role: account.role,
+        isActive: true,
+      },
+    });
+    if (account.role === StaffRole.admin) {
+      admin = user;
+    }
+  }
+
+  if (!admin) {
+    throw new Error('Admin staff user was not seeded');
+  }
 
   const packages = [
     {
@@ -149,7 +192,10 @@ async function main(): Promise<void> {
     });
   }
 
-  console.log(`Seed complete — admin: ${adminEmail} (${admin.id})`);
+  console.log('Seed complete — staff accounts (password: demo password):');
+  for (const account of staffAccounts) {
+    console.log(`  ${account.role.padEnd(12)} ${account.email}`);
+  }
   console.log(`Packages seeded: ${packages.map((p) => p.slug).join(', ')}`);
   console.log(`Settings seeded: ${settings.map((s) => s.key).join(', ')}`);
 }
