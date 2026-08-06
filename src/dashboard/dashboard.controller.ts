@@ -22,6 +22,13 @@ const DASHBOARD_ROLES = [StaffRole.admin, StaffRole.ops_manager] as const;
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  /** Single-call overview for the Ops dashboard — Redis-cached aggregates. */
+  @Get('overview')
+  @Roles(...DASHBOARD_ROLES)
+  overview(@CurrentUser() user: AuthPrincipal) {
+    return this.dashboardService.getOverview(user);
+  }
+
   @Get('summary')
   @Roles(...DASHBOARD_ROLES)
   summary(@CurrentUser() user: AuthPrincipal) {
