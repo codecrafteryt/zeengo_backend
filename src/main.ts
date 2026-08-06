@@ -3,13 +3,43 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
+function resolveCorsOrigins(): boolean | string[] {
+  const raw =
+    process.env.APP_WEB_ORIGIN ||
+    process.env.CORS_ORIGIN ||
+    'http://localhost:5173,http://127.0.0.1:5173';
+
+  const list = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Develop freely if unset/wildcard
+  if (list.length === 0 || list.includes('*')) {
+    return true;
+  }
+
+  // Always allow both localhost and 127.0.0.1 Vite origins in development
+  const origins = new Set(list);
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:5173');
+    origins.add('http://127.0.0.1:5173');
+    origins.add('http://localhost:4173');
+    origins.add('http://127.0.0.1:4173');
+  }
+
+  return [...origins];
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(helmet());
   app.enableCors({
-    origin: process.env.APP_WEB_ORIGIN?.split(',') ?? true,
+    origin: resolveCorsOrigins(),
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
   app.setGlobalPrefix('api/v1');
 
