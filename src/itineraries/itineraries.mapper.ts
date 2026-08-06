@@ -1,4 +1,4 @@
-import { ItineraryItem, ItineraryItemStatus } from '@prisma/client';
+import { ItineraryItem, ItineraryItemStatus, DriverProfile, StaffUser } from '@prisma/client';
 
 export type ItineraryItemDto = {
   id: string;
@@ -22,6 +22,7 @@ export type ItineraryItemDto = {
 export type DailyOperationItemDto = ItineraryItemDto & {
   znCode: string;
   clientName: string;
+  driverName: string | null;
 };
 
 export type DailyOperationsDayDto = {
@@ -62,11 +63,13 @@ export function mapItineraryItem(row: ItineraryItem): ItineraryItemDto {
 export function mapDailyOperationItem(
   row: ItineraryItem & {
     booking: { znCode: string; client: { fullName: string } };
+    driver?: (DriverProfile & { user?: StaffUser | null }) | null;
   },
 ): DailyOperationItemDto {
   return {
     ...mapItineraryItem(row),
     znCode: row.booking.znCode,
     clientName: row.booking.client.fullName,
+    driverName: row.driver?.user?.fullName ?? null,
   };
 }

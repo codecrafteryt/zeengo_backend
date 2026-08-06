@@ -168,6 +168,9 @@ export class ItinerariesService {
         booking: {
           include: { client: true },
         },
+        driver: {
+          include: { user: true },
+        },
       },
     });
 
@@ -197,6 +200,9 @@ export class ItinerariesService {
         include: {
           booking: {
             include: { client: true },
+          },
+          driver: {
+            include: { user: true },
           },
         },
       });

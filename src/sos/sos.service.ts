@@ -30,7 +30,7 @@ const SOS_RESOLVE_ROLES: StaffRole[] = [
 ];
 
 const sosInclude = {
-  booking: true,
+  booking: { include: { client: true } },
   resolvedByUser: true,
 } satisfies Prisma.SosAlertInclude;
 

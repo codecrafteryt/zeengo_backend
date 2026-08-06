@@ -1,9 +1,11 @@
-import { Booking, SosAlert, StaffUser } from '@prisma/client';
+import { Booking, Client, SosAlert, StaffUser } from '@prisma/client';
 
 export type SosAlertDto = {
   id: string;
   bookingId: string;
   znCode: string | null;
+  clientName: string | null;
+  clientPhone: string | null;
   message: string | null;
   lat: number | null;
   lng: number | null;
@@ -15,7 +17,11 @@ export type SosAlertDto = {
 };
 
 type SosRow = SosAlert & {
-  booking?: Booking | null;
+  booking?:
+    | (Booking & {
+        client?: Client | null;
+      })
+    | null;
   resolvedByUser?: StaffUser | null;
 };
 
@@ -24,6 +30,8 @@ export function mapSosAlert(row: SosRow): SosAlertDto {
     id: row.id,
     bookingId: row.bookingId,
     znCode: row.booking?.znCode ?? null,
+    clientName: row.booking?.client?.fullName ?? null,
+    clientPhone: row.booking?.client?.phone ?? null,
     message: row.message,
     lat: row.lat,
     lng: row.lng,
