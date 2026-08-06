@@ -147,7 +147,17 @@ export class BookingsService {
         take,
         include: {
           client: true,
-          ...(this.isCodesView(query, user) ? {} : { package: true }),
+          ...(this.isCodesView(query, user)
+            ? {}
+            : {
+                package: true,
+                driverAssignments: {
+                  where: { status: 'active' as const },
+                  include: {
+                    driver: { include: { user: true } },
+                  },
+                },
+              }),
         },
       }),
       this.prisma.booking.count({ where }),

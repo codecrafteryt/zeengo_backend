@@ -5,8 +5,14 @@ import { BookingStatus } from '@prisma/client';
 export const createBookingClientSchema = z.object({
   fullName: z.string().min(1),
   phone: z.string().min(1),
-  email: z.string().email().optional(),
-  nationality: z.string().optional(),
+  email: z
+    .union([z.string().email(), z.literal('')])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+  nationality: z
+    .union([z.string(), z.literal('')])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
 });
 
 export const createBookingSchema = z.object({

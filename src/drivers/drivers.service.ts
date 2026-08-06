@@ -178,17 +178,28 @@ export class DriversService {
     }
 
     try {
-      const row = await this.prisma.driverAssignment.create({
-        data: {
-          bookingId: dto.bookingId,
-          driverId: dto.driverId,
-          startDate: new Date(dto.startDate),
-          endDate: dto.endDate ? new Date(dto.endDate) : undefined,
-          assignedBy,
-        },
-        include: {
-          booking: { include: { client: true } },
-        },
+      const row = await this.prisma.$transaction(async (tx) => {
+        // One active assignment per booking — reassign replaces previous.
+        await tx.driverAssignment.updateMany({
+          where: {
+            bookingId: dto.bookingId,
+            status: AssignmentStatus.active,
+          },
+          data: { status: AssignmentStatus.cancelled },
+        });
+
+        return tx.driverAssignment.create({
+          data: {
+            bookingId: dto.bookingId,
+            driverId: dto.driverId,
+            startDate: new Date(dto.startDate),
+            endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+            assignedBy,
+          },
+          include: {
+            booking: { include: { client: true } },
+          },
+        });
       });
 
       return mapAssignment(row);

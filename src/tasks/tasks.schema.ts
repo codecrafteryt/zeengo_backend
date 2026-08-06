@@ -6,6 +6,7 @@ export const listTasksQuerySchema = paginationSchema.extend({
   status: z.nativeEnum(TaskStatus).optional(),
   priority: z.nativeEnum(TaskPriority).optional(),
   assignee: z.enum(['me']).optional(),
+  bookingId: z.string().uuid().optional(),
 });
 
 export const createTaskSchema = z.object({

@@ -7,12 +7,53 @@ import {
   parseSort,
   toSkipTake,
 } from '../common/pagination/pagination';
-import { ListClientsQuery, UpdateClientDto } from './clients.schema';
+import {
+  CreateClientDto,
+  ListClientsQuery,
+  UpdateClientDto,
+} from './clients.schema';
 import { mapClient } from './clients.mapper';
 
 @Injectable()
 export class ClientsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreateClientDto) {
+    const phoneTaken = await this.prisma.client.findFirst({
+      where: { phone: dto.phone, deletedAt: null },
+    });
+    if (phoneTaken) {
+      throw AppError.conflict('PHONE_TAKEN', 'Phone number already in use');
+    }
+
+    try {
+      const row = await this.prisma.client.create({
+        data: {
+          fullName: dto.fullName,
+          phone: dto.phone,
+          email: dto.email,
+          nationality: dto.nationality,
+          whatsapp: dto.whatsapp,
+          preferredLang: dto.preferredLang,
+        },
+        include: {
+          bookings: {
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          },
+        },
+      });
+      return mapClient(row, row.bookings);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw AppError.conflict('PHONE_TAKEN', 'Phone number already in use');
+      }
+      throw err;
+    }
+  }
 
   async list(query: ListClientsQuery) {
     const { page, limit, skip, take } = toSkipTake(query);

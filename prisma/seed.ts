@@ -4,6 +4,9 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
+  // Booking ZN codes use this Postgres sequence
+  await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS zn_seq START 1`);
+
   // Shared demo password for all seeded staff roles
   const demoPassword =
     process.env.SEED_STAFF_PASSWORD?.trim() ||
@@ -65,6 +68,24 @@ async function main(): Promise<void> {
     });
     if (account.role === StaffRole.admin) {
       admin = user;
+    }
+    if (account.role === StaffRole.driver) {
+      await prisma.driverProfile.upsert({
+        where: { userId: user.id },
+        update: {
+          vehicleMake: 'Mercedes',
+          vehicleModel: 'V-Class',
+          plateNumber: 'A123BC77',
+          status: 'available',
+        },
+        create: {
+          userId: user.id,
+          vehicleMake: 'Mercedes',
+          vehicleModel: 'V-Class',
+          plateNumber: 'A123BC77',
+          status: 'available',
+        },
+      });
     }
   }
 

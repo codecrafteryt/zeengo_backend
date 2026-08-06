@@ -27,7 +27,12 @@ export class PackagesController {
   constructor(private readonly packagesService: PackagesService) {}
 
   @Get()
-  @Roles('client', StaffRole.admin, StaffRole.ops_manager)
+  @Roles(
+    'client',
+    StaffRole.admin,
+    StaffRole.ops_manager,
+    StaffRole.support,
+  )
   list(@CurrentUser() user: AuthPrincipal) {
     return this.packagesService.list(user);
   }

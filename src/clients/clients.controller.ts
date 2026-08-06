@@ -1,13 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { StaffRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { zodPipe } from '../common/pipes/zod-validation.pipe';
 import {
+  createClientSchema,
   listClientsQuerySchema,
   updateClientSchema,
 } from './clients.schema';
-import type { ListClientsQuery, UpdateClientDto } from './clients.schema';
+import type {
+  CreateClientDto,
+  ListClientsQuery,
+  UpdateClientDto,
+} from './clients.schema';
 import { ClientsService } from './clients.service';
 
 const STAFF_ROLES = [
@@ -16,6 +21,12 @@ const STAFF_ROLES = [
   StaffRole.support,
   StaffRole.splizer,
   StaffRole.driver,
+] as const;
+
+const WRITE_ROLES = [
+  StaffRole.admin,
+  StaffRole.ops_manager,
+  StaffRole.support,
 ] as const;
 
 @ApiTags('clients')
@@ -29,6 +40,12 @@ export class ClientsController {
     return this.clientsService.list(query);
   }
 
+  @Post()
+  @Roles(...WRITE_ROLES)
+  create(@Body(zodPipe(createClientSchema)) body: CreateClientDto) {
+    return this.clientsService.create(body);
+  }
+
   @Get(':id')
   @Roles(...STAFF_ROLES)
   getById(@Param('id') id: string) {
@@ -36,7 +53,7 @@ export class ClientsController {
   }
 
   @Patch(':id')
-  @Roles(StaffRole.admin, StaffRole.ops_manager, StaffRole.support)
+  @Roles(...WRITE_ROLES)
   update(
     @Param('id') id: string,
     @Body(zodPipe(updateClientSchema)) body: UpdateClientDto,

@@ -24,6 +24,7 @@ const TASK_READ_ROLES: StaffRole[] = [
 const TASK_WRITE_ROLES: StaffRole[] = [
   StaffRole.admin,
   StaffRole.ops_manager,
+  StaffRole.support,
 ];
 
 const taskInclude = {
@@ -50,6 +51,9 @@ export class TasksService {
     }
     if (query.assignee === 'me') {
       where.assigneeId = user.sub;
+    }
+    if (query.bookingId) {
+      where.bookingId = query.bookingId;
     }
 
     if (query.search?.trim()) {
