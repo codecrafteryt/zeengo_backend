@@ -51,6 +51,13 @@ export class EditRequestsController {
     return this.editRequestsService.list(query, user);
   }
 
+  /** Must stay before `:id` so Nest does not treat "stats" as a UUID. */
+  @Get('stats')
+  @Roles(...STAFF_READ_ROLES)
+  stats(@CurrentUser() user: AuthPrincipal) {
+    return this.editRequestsService.stats(user);
+  }
+
   @Post()
   @Roles('client')
   create(

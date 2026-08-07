@@ -39,7 +39,7 @@ const STAFF_READ_ROLES: StaffRole[] = [
 ];
 
 const editRequestInclude = {
-  booking: true,
+  booking: { include: { client: true } },
   reviewedByUser: true,
 } satisfies Prisma.EditRequestInclude;
 
@@ -61,6 +61,18 @@ export class EditRequestsService {
     if (query.type) where.type = query.type;
     if (query.bookingId) where.bookingId = query.bookingId;
 
+    const search = query.search?.trim();
+    if (search) {
+      where.OR = [
+        { reason: { contains: search, mode: 'insensitive' } },
+        { originalValue: { contains: search, mode: 'insensitive' } },
+        { requestedValue: { contains: search, mode: 'insensitive' } },
+        { booking: { znCode: { contains: search, mode: 'insensitive' } } },
+        { booking: { client: { fullName: { contains: search, mode: 'insensitive' } } } },
+        { booking: { client: { phone: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
+
     const orderBy = parseSort(query.sort, ['createdAt', 'status', 'type'], {
       field: 'createdAt',
       dir: 'desc',
@@ -78,6 +90,33 @@ export class EditRequestsService {
     ]);
 
     return { data: rows.map(mapEditRequest), meta: pageMeta(total, page, limit) };
+  }
+
+  /** Single round-trip for tab badges — avoids 4× limit=1 list polls. */
+  async stats(user: AuthPrincipal) {
+    this.assertStaffRead(user);
+
+    const grouped = await this.prisma.editRequest.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+
+    const counts = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      all: 0,
+    };
+
+    for (const row of grouped) {
+      const n = row._count._all;
+      counts.all += n;
+      if (row.status === EditRequestStatus.pending) counts.pending = n;
+      else if (row.status === EditRequestStatus.approved) counts.approved = n;
+      else if (row.status === EditRequestStatus.rejected) counts.rejected = n;
+    }
+
+    return counts;
   }
 
   async listByBooking(bookingId: string, user: AuthPrincipal) {

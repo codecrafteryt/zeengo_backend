@@ -213,6 +213,131 @@ async function main(): Promise<void> {
     });
   }
 
+  // Sample edit requests against existing bookings (idempotent via reason prefix)
+  const existingBookings = await prisma.booking.findMany({
+    where: { status: 'active' },
+    orderBy: { createdAt: 'asc' },
+    take: 5,
+    include: { client: true },
+  });
+
+  if (existingBookings.length > 0) {
+    const samples: Array<{
+      bookingId: string;
+      type: 'date_change' | 'itinerary_change' | 'vip_upgrade' | 'other';
+      originalValue: string;
+      requestedValue: string;
+      reason: string;
+      status: 'pending' | 'approved' | 'rejected';
+      reviewNotes?: string;
+    }> = [];
+
+    const b0 = existingBookings[0];
+    samples.push({
+      bookingId: b0.id,
+      type: 'date_change',
+      originalValue: JSON.stringify({
+        arrivalDate: b0.arrivalDate?.toISOString().slice(0, 10) ?? null,
+        departureDate: b0.departureDate?.toISOString().slice(0, 10) ?? null,
+      }),
+      requestedValue: JSON.stringify({
+        arrivalDate: b0.arrivalDate
+          ? new Date(b0.arrivalDate.getTime() + 2 * 86400000).toISOString().slice(0, 10)
+          : null,
+        departureDate: b0.departureDate
+          ? new Date(b0.departureDate.getTime() + 2 * 86400000).toISOString().slice(0, 10)
+          : null,
+      }),
+      reason:
+        '[seed] Family needs one extra day in Moscow for shopping. Request to shift itinerary by 2 days.',
+      status: 'pending',
+    });
+
+    if (existingBookings[1]) {
+      const b1 = existingBookings[1];
+      samples.push({
+        bookingId: b1.id,
+        type: 'itinerary_change',
+        originalValue: 'Four Seasons Moscow',
+        requestedValue: 'St. Regis Moscow',
+        reason: '[seed] Prefer St. Regis for the last two nights.',
+        status: 'pending',
+      });
+    }
+
+    if (existingBookings[2]) {
+      const b2 = existingBookings[2];
+      samples.push({
+        bookingId: b2.id,
+        type: 'other',
+        originalValue: 'Pickup 11:00',
+        requestedValue: 'Pickup 14:30',
+        reason: '[seed] Flight delayed — please shift airport pickup.',
+        status: 'pending',
+      });
+    }
+
+    // One approved + one rejected for tab demos if we have enough bookings
+    if (existingBookings[0]) {
+      samples.push({
+        bookingId: existingBookings[0].id,
+        type: 'vip_upgrade',
+        originalValue: JSON.stringify({ isVip: false }),
+        requestedValue: JSON.stringify({ isVip: true }),
+        reason: '[seed] Request Zeen Rafeq VIP concierge for the stay.',
+        status: 'approved',
+        reviewNotes: 'VIP package activated and client notified.',
+      });
+    }
+    if (existingBookings[1]) {
+      samples.push({
+        bookingId: existingBookings[1].id,
+        type: 'date_change',
+        originalValue: JSON.stringify({
+          arrivalDate: existingBookings[1].arrivalDate?.toISOString().slice(0, 10) ?? null,
+          departureDate: existingBookings[1].departureDate?.toISOString().slice(0, 10) ?? null,
+        }),
+        requestedValue: JSON.stringify({
+          arrivalDate: existingBookings[1].arrivalDate?.toISOString().slice(0, 10) ?? null,
+          departureDate: existingBookings[1].departureDate
+            ? new Date(existingBookings[1].departureDate.getTime() + 5 * 86400000)
+                .toISOString()
+                .slice(0, 10)
+            : null,
+        }),
+        reason: '[seed] Extend stay by 5 nights for additional business meetings.',
+        status: 'rejected',
+        reviewNotes: 'Driver unavailable on requested extension dates; hotel fully booked.',
+      });
+    }
+
+    let seeded = 0;
+    for (const sample of samples) {
+      const exists = await prisma.editRequest.findFirst({
+        where: { reason: sample.reason },
+      });
+      if (exists) continue;
+      await prisma.editRequest.create({
+        data: {
+          bookingId: sample.bookingId,
+          type: sample.type,
+          originalValue: sample.originalValue,
+          requestedValue: sample.requestedValue,
+          reason: sample.reason,
+          status: sample.status,
+          reviewNotes: sample.reviewNotes,
+          reviewedBy:
+            sample.status !== 'pending' ? admin.id : undefined,
+          reviewedAt: sample.status !== 'pending' ? new Date() : undefined,
+        },
+      });
+      seeded += 1;
+    }
+    console.log(`Edit requests seeded: ${seeded} new (of ${samples.length} samples)`);
+  } else {
+    console.log('Edit requests seed skipped — no active bookings yet');
+  }
+
   console.log('Seed complete — staff accounts (password: demo password):');
   for (const account of staffAccounts) {
     console.log(`  ${account.role.padEnd(12)} ${account.email}`);
