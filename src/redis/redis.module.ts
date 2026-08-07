@@ -51,7 +51,19 @@ export class RedisService implements OnModuleDestroy {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
-        return new Redis(url, { maxRetriesPerRequest: null });
+        const client = new Redis(url, {
+          maxRetriesPerRequest: null,
+          retryStrategy: (times) => Math.min(times * 200, 3000),
+        });
+        let lastErrorLog = 0;
+        // Avoid ioredis "Unhandled error event" log spam while still reconnecting
+        client.on('error', (err) => {
+          const now = Date.now();
+          if (now - lastErrorLog < 5000) return;
+          lastErrorLog = now;
+          console.warn(`[redis] ${err.message}`);
+        });
+        return client;
       },
     },
     RedisService,
