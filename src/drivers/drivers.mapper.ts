@@ -17,8 +17,39 @@ export type DriverUserSummary = {
   avatarUrl: string | null;
 };
 
+export type DriverActiveAssignmentSummary = {
+  id: string;
+  bookingId: string;
+  znCode: string | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  startDate: string;
+  endDate: string | null;
+};
+
 export type DriverListItemDto = ReturnType<typeof mapDriverProfile> & {
   user: DriverUserSummary;
+  activeAssignment: DriverActiveAssignmentSummary | null;
+};
+
+export type UnassignedBookingDto = {
+  bookingId: string;
+  znCode: string;
+  clientName: string;
+  clientPhone: string | null;
+  packageName: string | null;
+  arrivalDate: string | null;
+  departureDate: string | null;
+  isVip: boolean;
+};
+
+export type DriverStatsDto = {
+  total: number;
+  available: number;
+  enRoute: number;
+  resting: number;
+  offDuty: number;
+  unassignedBookings: number;
 };
 
 export type DriverAssignmentDto = {
@@ -26,6 +57,7 @@ export type DriverAssignmentDto = {
   bookingId: string;
   znCode: string | null;
   clientName: string | null;
+  clientPhone: string | null;
   driverId: string;
   startDate: string;
   endDate: string | null;
@@ -53,10 +85,13 @@ export type LivePositionDto = {
   recordedAt: string;
 };
 
-type DriverWithUser = DriverProfile & { user: StaffUser };
-
 type AssignmentWithBooking = DriverAssignment & {
   booking: Booking & { client: Client };
+};
+
+type DriverWithUser = DriverProfile & {
+  user: StaffUser;
+  driverAssignments?: AssignmentWithBooking[];
 };
 
 export function mapDriverUser(user: StaffUser): DriverUserSummary {
@@ -69,10 +104,27 @@ export function mapDriverUser(user: StaffUser): DriverUserSummary {
   };
 }
 
+function mapActiveAssignmentSummary(
+  row?: AssignmentWithBooking | null,
+): DriverActiveAssignmentSummary | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    bookingId: row.bookingId,
+    znCode: row.booking.znCode,
+    clientName: row.booking.client.fullName,
+    clientPhone: row.booking.client.phone ?? null,
+    startDate: row.startDate.toISOString().slice(0, 10),
+    endDate: row.endDate?.toISOString().slice(0, 10) ?? null,
+  };
+}
+
 export function mapDriverListItem(row: DriverWithUser): DriverListItemDto {
+  const active = row.driverAssignments?.find((a) => a.status === 'active') ?? null;
   return {
     ...mapDriverProfile(row),
     user: mapDriverUser(row.user),
+    activeAssignment: mapActiveAssignmentSummary(active),
   };
 }
 
@@ -92,6 +144,7 @@ export function mapAssignment(row: AssignmentWithBooking): DriverAssignmentDto {
     bookingId: row.bookingId,
     znCode: row.booking.znCode,
     clientName: row.booking.client.fullName,
+    clientPhone: row.booking.client.phone ?? null,
     driverId: row.driverId,
     startDate: row.startDate.toISOString().slice(0, 10),
     endDate: row.endDate?.toISOString().slice(0, 10) ?? null,

@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { AssignmentStatus, DriverStatus, Prisma, StaffRole } from '@prisma/client';
+import {
+  AssignmentStatus,
+  BookingStatus,
+  DriverStatus,
+  Prisma,
+  StaffRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { AppError } from '../common/errors/app-error';
@@ -15,6 +21,7 @@ import {
   ListDriversQuery,
   ScheduleQuery,
   UpdateDriverDto,
+  UpdateMyScheduleItemDto,
   UpdateMyStatusDto,
 } from './drivers.schema';
 import {
@@ -24,6 +31,8 @@ import {
   mapDriverTrip,
   mapLivePosition,
   mapScheduleItem,
+  type DriverStatsDto,
+  type UnassignedBookingDto,
 } from './drivers.mapper';
 
 const GPS_KEY_PREFIX = 'driver:gps:';
@@ -74,7 +83,15 @@ export class DriversService {
         orderBy,
         skip,
         take,
-        include: { user: true },
+        include: {
+          user: true,
+          driverAssignments: {
+            where: { status: AssignmentStatus.active },
+            take: 1,
+            orderBy: { startDate: 'desc' },
+            include: { booking: { include: { client: true } } },
+          },
+        },
       }),
       this.prisma.driverProfile.count({ where }),
     ]);
@@ -120,10 +137,94 @@ export class DriversService {
         whatsapp: dto.whatsapp,
         status: dto.status,
       },
-      include: { user: true },
+      include: {
+        user: true,
+        driverAssignments: {
+          where: { status: AssignmentStatus.active },
+          take: 1,
+          include: { booking: { include: { client: true } } },
+        },
+      },
     });
 
     return mapDriverListItem(row);
+  }
+
+  async getStats(): Promise<DriverStatsDto> {
+    const [grouped, unassignedBookings] = await Promise.all([
+      this.prisma.driverProfile.groupBy({
+        by: ['status'],
+        where: { user: { deletedAt: null, isActive: true } },
+        _count: { _all: true },
+      }),
+      this.prisma.booking.count({
+        where: {
+          status: BookingStatus.active,
+          driverAssignments: { none: { status: AssignmentStatus.active } },
+        },
+      }),
+    ]);
+
+    const counts = {
+      total: 0,
+      available: 0,
+      enRoute: 0,
+      resting: 0,
+      offDuty: 0,
+      unassignedBookings,
+    };
+
+    for (const row of grouped) {
+      counts.total += row._count._all;
+      if (row.status === DriverStatus.available) counts.available = row._count._all;
+      else if (row.status === DriverStatus.en_route) counts.enRoute = row._count._all;
+      else if (row.status === DriverStatus.resting) counts.resting = row._count._all;
+      else if (row.status === DriverStatus.off_duty) counts.offDuty = row._count._all;
+    }
+
+    return counts;
+  }
+
+  async listUnassignedBookings(): Promise<UnassignedBookingDto[]> {
+    const rows = await this.prisma.booking.findMany({
+      where: {
+        status: BookingStatus.active,
+        driverAssignments: { none: { status: AssignmentStatus.active } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: { client: true, package: true },
+    });
+
+    return rows.map((row) => ({
+      bookingId: row.id,
+      znCode: row.znCode,
+      clientName: row.client.fullName,
+      clientPhone: row.client.phone ?? null,
+      packageName: row.package?.name ?? null,
+      arrivalDate: row.arrivalDate?.toISOString().slice(0, 10) ?? null,
+      departureDate: row.departureDate?.toISOString().slice(0, 10) ?? null,
+      isVip: row.isVip,
+    }));
+  }
+
+  async getMe(user: AuthPrincipal) {
+    const profile = await this.requireDriverProfile(user);
+    const row = await this.prisma.driverProfile.findUnique({
+      where: { id: profile.id },
+      include: {
+        user: true,
+        driverAssignments: {
+          where: { status: AssignmentStatus.active },
+          orderBy: { startDate: 'desc' },
+          include: { booking: { include: { client: true } } },
+        },
+      },
+    });
+    if (!row) {
+      throw AppError.notFound('DRIVER_PROFILE_NOT_FOUND', 'Driver profile not found');
+    }
+    return mapDriverDetail(row, row.driverAssignments);
   }
 
   async getSchedule(driverId: string, query: ScheduleQuery) {
@@ -192,7 +293,7 @@ export class DriversService {
           data: {
             bookingId: dto.bookingId,
             driverId: dto.driverId,
-            startDate: new Date(dto.startDate),
+            startDate: new Date(dto.startDate ?? this.formatDate(new Date())),
             endDate: dto.endDate ? new Date(dto.endDate) : undefined,
             assignedBy,
           },
@@ -238,13 +339,45 @@ export class DriversService {
     return this.getSchedule(profile.id, query);
   }
 
+  async updateMyScheduleItem(
+    user: AuthPrincipal,
+    itemId: string,
+    dto: UpdateMyScheduleItemDto,
+  ) {
+    const profile = await this.requireDriverProfile(user);
+    const item = await this.prisma.itineraryItem.findUnique({
+      where: { id: itemId },
+    });
+    if (!item) {
+      throw AppError.notFound('ITINERARY_ITEM_NOT_FOUND', 'Itinerary item not found');
+    }
+    if (item.driverId !== profile.id) {
+      throw AppError.forbidden();
+    }
+
+    const row = await this.prisma.itineraryItem.update({
+      where: { id: itemId },
+      data: { status: dto.status },
+      include: { booking: { include: { client: true } } },
+    });
+
+    return mapScheduleItem(row);
+  }
+
   async updateMyStatus(user: AuthPrincipal, dto: UpdateMyStatusDto) {
     const profile = await this.requireDriverProfile(user);
 
     const row = await this.prisma.driverProfile.update({
       where: { id: profile.id },
       data: { status: dto.status },
-      include: { user: true },
+      include: {
+        user: true,
+        driverAssignments: {
+          where: { status: AssignmentStatus.active },
+          take: 1,
+          include: { booking: { include: { client: true } } },
+        },
+      },
     });
 
     const gpsKey = `${GPS_KEY_PREFIX}${profile.id}`;

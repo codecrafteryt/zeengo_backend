@@ -33,12 +33,16 @@ export const scheduleQuerySchema = z.object({
 export const createAssignmentSchema = z.object({
   bookingId: z.string().uuid(),
   driverId: z.string().uuid(),
-  startDate: z.string().date(),
+  startDate: z.string().date().optional(),
   endDate: z.string().date().optional(),
 });
 
 export const updateMyStatusSchema = z.object({
   status: z.nativeEnum(DriverStatus),
+});
+
+export const updateMyScheduleItemSchema = z.object({
+  status: z.enum(['pending', 'active', 'done', 'cancelled']),
 });
 
 export const gpsPingSchema = z.object({
@@ -51,6 +55,7 @@ export type UpdateDriverDto = z.infer<typeof updateDriverSchema>;
 export type ScheduleQuery = z.infer<typeof scheduleQuerySchema>;
 export type CreateAssignmentDto = z.infer<typeof createAssignmentSchema>;
 export type UpdateMyStatusDto = z.infer<typeof updateMyStatusSchema>;
+export type UpdateMyScheduleItemDto = z.infer<typeof updateMyScheduleItemSchema>;
 export type GpsPingDto = z.infer<typeof gpsPingSchema>;
 
 export { AssignmentStatus, DriverStatus };

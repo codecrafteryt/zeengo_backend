@@ -21,6 +21,7 @@ import {
   listDriversQuerySchema,
   scheduleQuerySchema,
   updateDriverSchema,
+  updateMyScheduleItemSchema,
   updateMyStatusSchema,
 } from './drivers.schema';
 import type {
@@ -29,6 +30,7 @@ import type {
   ListDriversQuery,
   ScheduleQuery,
   UpdateDriverDto,
+  UpdateMyScheduleItemDto,
   UpdateMyStatusDto,
 } from './drivers.schema';
 import { DriversService } from './drivers.service';
@@ -47,6 +49,12 @@ export class DriversController {
     return this.driversService.getLivePositions();
   }
 
+  @Get('me')
+  @Roles(StaffRole.driver)
+  me(@CurrentUser() user: AuthPrincipal) {
+    return this.driversService.getMe(user);
+  }
+
   @Get('me/schedule')
   @Roles(StaffRole.driver)
   mySchedule(
@@ -54,6 +62,16 @@ export class DriversController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.driversService.getMySchedule(user, query);
+  }
+
+  @Patch('me/schedule/:itemId')
+  @Roles(StaffRole.driver)
+  updateMyScheduleItem(
+    @Param('itemId') itemId: string,
+    @Body(zodPipe(updateMyScheduleItemSchema)) body: UpdateMyScheduleItemDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.updateMyScheduleItem(user, itemId, body);
   }
 
   @Put('me/status')
@@ -87,6 +105,18 @@ export class DriversController {
   @Roles(...DRIVER_OPS_ROLES)
   deleteAssignment(@Param('id') id: string) {
     return this.driversService.deleteAssignment(id);
+  }
+
+  @Get('stats')
+  @Roles(...DRIVER_OPS_ROLES)
+  stats() {
+    return this.driversService.getStats();
+  }
+
+  @Get('unassigned-bookings')
+  @Roles(...DRIVER_OPS_ROLES)
+  unassignedBookings() {
+    return this.driversService.listUnassignedBookings();
   }
 
   @Get()
