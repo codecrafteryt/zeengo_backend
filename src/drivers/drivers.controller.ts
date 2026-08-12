@@ -23,6 +23,7 @@ import {
   updateDriverSchema,
   updateMyScheduleItemSchema,
   updateMyStatusSchema,
+  updateMyVehicleSchema,
 } from './drivers.schema';
 import type {
   CreateAssignmentDto,
@@ -32,8 +33,12 @@ import type {
   UpdateDriverDto,
   UpdateMyScheduleItemDto,
   UpdateMyStatusDto,
+  UpdateMyVehicleDto,
 } from './drivers.schema';
+import { listReviewsQuerySchema } from '../reviews/reviews.schema';
+import type { ListReviewsQuery } from '../reviews/reviews.schema';
 import { DriversService } from './drivers.service';
+import { ReviewsService } from '../reviews/reviews.service';
 
 const OPS_ROLES = [StaffRole.admin, StaffRole.ops_manager] as const;
 const DRIVER_OPS_ROLES = [...OPS_ROLES, StaffRole.support] as const;
@@ -41,7 +46,10 @@ const DRIVER_OPS_ROLES = [...OPS_ROLES, StaffRole.support] as const;
 @ApiTags('drivers')
 @Controller('drivers')
 export class DriversController {
-  constructor(private readonly driversService: DriversService) {}
+  constructor(
+    private readonly driversService: DriversService,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
   @Get('live-positions')
   @Roles(...OPS_ROLES)
@@ -72,6 +80,24 @@ export class DriversController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.driversService.updateMyScheduleItem(user, itemId, body);
+  }
+
+  @Patch('me/vehicle')
+  @Roles(StaffRole.driver)
+  updateMyVehicle(
+    @Body(zodPipe(updateMyVehicleSchema)) body: UpdateMyVehicleDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.updateMyVehicle(user, body);
+  }
+
+  @Get('me/reviews')
+  @Roles(StaffRole.driver)
+  myReviews(
+    @Query(zodPipe(listReviewsQuerySchema)) query: ListReviewsQuery,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.reviewsService.listMineAsDriver(user, query);
   }
 
   @Put('me/status')
@@ -138,6 +164,16 @@ export class DriversController {
   @Roles(...DRIVER_OPS_ROLES)
   trips(@Param('id') id: string) {
     return this.driversService.getTrips(id);
+  }
+
+  @Get(':id/reviews')
+  @Roles(...DRIVER_OPS_ROLES, StaffRole.driver)
+  reviews(
+    @Param('id') id: string,
+    @Query(zodPipe(listReviewsQuerySchema)) query: ListReviewsQuery,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.reviewsService.listForDriver(id, query, user);
   }
 
   @Get(':id')

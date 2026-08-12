@@ -338,6 +338,64 @@ async function main(): Promise<void> {
     console.log('Edit requests seed skipped — no active bookings yet');
   }
 
+  const driverProfile = await prisma.driverProfile.findFirst({
+    where: { user: { email: 'driver@zeengo.com', deletedAt: null } },
+  });
+  const reviewBookings = await prisma.booking.findMany({
+    where: { status: 'active' },
+    orderBy: { createdAt: 'asc' },
+    take: 2,
+  });
+  if (driverProfile && reviewBookings.length > 0) {
+    const samples = [
+      {
+        booking: reviewBookings[0],
+        rating: 5,
+        comment: 'Punctual and very professional throughout the day.',
+      },
+      reviewBookings[1]
+        ? {
+            booking: reviewBookings[1],
+            rating: 4,
+            comment: 'Smooth airport transfer. Car was clean.',
+          }
+        : null,
+    ].filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+    for (const sample of samples) {
+      await prisma.driverReview.upsert({
+        where: {
+          bookingId_driverId: {
+            bookingId: sample.booking.id,
+            driverId: driverProfile.id,
+          },
+        },
+        create: {
+          bookingId: sample.booking.id,
+          clientId: sample.booking.clientId,
+          driverId: driverProfile.id,
+          rating: sample.rating,
+          comment: sample.comment,
+        },
+        update: {},
+      });
+    }
+
+    const agg = await prisma.driverReview.aggregate({
+      where: { driverId: driverProfile.id },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await prisma.driverProfile.update({
+      where: { id: driverProfile.id },
+      data: {
+        rating: agg._count._all ? Number(agg._avg.rating ?? 0).toFixed(1) : '0.0',
+        reviewsCount: agg._count._all,
+      },
+    });
+    console.log(`Driver reviews seeded: ${agg._count._all} for driver@zeengo.com`);
+  }
+
   console.log('Seed complete — staff accounts (password: demo password):');
   for (const account of staffAccounts) {
     console.log(`  ${account.role.padEnd(12)} ${account.email}`);

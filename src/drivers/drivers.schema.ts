@@ -41,6 +41,21 @@ export const updateMyStatusSchema = z.object({
   status: z.nativeEnum(DriverStatus),
 });
 
+const emptyToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
+export const updateMyVehicleSchema = z.object({
+  vehicleMake: z.string().trim().min(1).max(80),
+  vehicleModel: z.string().trim().min(1).max(80),
+  vehicleColor: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  vehicleYear: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1990).max(2100).optional(),
+  ),
+  plateNumber: z.string().trim().min(1).max(20),
+  whatsapp: z.preprocess(emptyToUndefined, z.string().trim().max(32).optional()),
+});
+
 export const updateMyScheduleItemSchema = z.object({
   status: z.enum(['pending', 'active', 'done', 'cancelled']),
 });
@@ -55,6 +70,7 @@ export type UpdateDriverDto = z.infer<typeof updateDriverSchema>;
 export type ScheduleQuery = z.infer<typeof scheduleQuerySchema>;
 export type CreateAssignmentDto = z.infer<typeof createAssignmentSchema>;
 export type UpdateMyStatusDto = z.infer<typeof updateMyStatusSchema>;
+export type UpdateMyVehicleDto = z.infer<typeof updateMyVehicleSchema>;
 export type UpdateMyScheduleItemDto = z.infer<typeof updateMyScheduleItemSchema>;
 export type GpsPingDto = z.infer<typeof gpsPingSchema>;
 

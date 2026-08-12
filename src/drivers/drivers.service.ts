@@ -23,6 +23,7 @@ import {
   UpdateDriverDto,
   UpdateMyScheduleItemDto,
   UpdateMyStatusDto,
+  UpdateMyVehicleDto,
 } from './drivers.schema';
 import {
   mapAssignment,
@@ -362,6 +363,30 @@ export class DriversService {
     });
 
     return mapScheduleItem(row);
+  }
+
+  async updateMyVehicle(user: AuthPrincipal, dto: UpdateMyVehicleDto) {
+    const profile = await this.requireDriverProfile(user);
+    const row = await this.prisma.driverProfile.update({
+      where: { id: profile.id },
+      data: {
+        vehicleMake: dto.vehicleMake,
+        vehicleModel: dto.vehicleModel,
+        vehicleColor: dto.vehicleColor ?? null,
+        vehicleYear: dto.vehicleYear ?? null,
+        plateNumber: dto.plateNumber,
+        whatsapp: dto.whatsapp ?? null,
+      },
+      include: {
+        user: true,
+        driverAssignments: {
+          where: { status: AssignmentStatus.active },
+          take: 1,
+          include: { booking: { include: { client: true } } },
+        },
+      },
+    });
+    return mapDriverListItem(row);
   }
 
   async updateMyStatus(user: AuthPrincipal, dto: UpdateMyStatusDto) {

@@ -21,6 +21,7 @@ import { FinanceModule } from './finance/finance.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { DriversModule } from './drivers/drivers.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { TasksModule } from './tasks/tasks.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EditRequestsModule } from './edit-requests/edit-requests.module';
@@ -57,6 +58,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     FinanceModule,
     WebhooksModule,
     DriversModule,
+    ReviewsModule,
     TasksModule,
     DashboardModule,
     NotificationsModule,

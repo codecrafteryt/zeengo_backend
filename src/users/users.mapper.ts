@@ -15,6 +15,7 @@ export function mapDriverProfile(profile: DriverProfile) {
     plateNumber: profile.plateNumber,
     whatsapp: profile.whatsapp,
     rating: profile.rating.toString(),
+    reviewsCount: profile.reviewsCount,
     tripsCount: profile.tripsCount,
     status: profile.status,
     lastLat: profile.lastLat,

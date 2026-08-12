@@ -203,6 +203,7 @@ model DriverProfile {
   plateNumber  String?      @map("plate_number")
   whatsapp     String?
   rating       Decimal      @default(0) @db.Decimal(2, 1)
+  reviewsCount Int          @default(0) @map("reviews_count")
   tripsCount   Int          @default(0) @map("trips_count")
   status       DriverStatus @default(off_duty)
   lastLat      Float?       @map("last_lat")
@@ -215,6 +216,7 @@ model DriverProfile {
   gpsPings          GpsPing[]
   itineraryItems    ItineraryItem[]
   driverAssignments DriverAssignment[]
+  reviews           DriverReview[]
 
   @@index([status])
   @@map("driver_profiles")
@@ -258,6 +260,7 @@ model Client {
   conversationParticipants ConversationParticipant[] @relation("ConversationParticipantClient")
   messagesSent             Message[]                 @relation("MessageSenderClient")
   notifications            Notification[]            @relation("NotificationClient")
+  driverReviews            DriverReview[]
 
   @@map("clients")
 }
@@ -333,6 +336,7 @@ model Booking {
   bookingNotes      BookingNote[]
   conversations     Conversation[]
   tasks             Task[]
+  driverReviews     DriverReview[]
 
   @@index([status])
   @@index([clientId])
@@ -417,6 +421,26 @@ model DriverAssignment {
 
   @@unique([bookingId, driverId, startDate])
   @@map("driver_assignments")
+}
+
+model DriverReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  driverId  String   @map("driver_id") @db.Uuid
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  driver  DriverProfile @relation(fields: [driverId], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, driverId])
+  @@index([driverId, createdAt])
+  @@index([clientId])
+  @@map("driver_reviews")
 }
 
 // ---------------------------------------------------------------------------
