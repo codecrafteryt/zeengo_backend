@@ -396,6 +396,217 @@ async function main(): Promise<void> {
     console.log(`Driver reviews seeded: ${agg._count._all} for driver@zeengo.com`);
   }
 
+  const vendorSamples: Array<{
+    name: string;
+    type: 'hotel' | 'restaurant' | 'guide' | 'bus' | 'activity' | 'driver';
+    city: string;
+    contactName: string;
+    phone: string;
+    email: string;
+    commissionPct: number;
+    paymentTerms: 'bank_transfer' | 'cash' | 'voucher';
+    cancellationPolicy: string;
+    notes: string;
+  }> = [
+    {
+      name: 'Courtyard Marriott Moscow City',
+      type: 'hotel',
+      city: 'Moscow',
+      contactName: 'Sergei Volkov',
+      phone: '+74952345678',
+      email: 'revenue@marriott.ru',
+      commissionPct: 7,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 48h before arrival; 1 night after.',
+      notes: 'Group block + VIP suites. Halal breakfast on request.',
+    },
+    {
+      name: 'Lotte Hotel Moscow',
+      type: 'hotel',
+      city: 'Moscow',
+      contactName: 'Elena Sorokina',
+      phone: '+74951234567',
+      email: 'groups@lotte.ru',
+      commissionPct: 8,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 72h before arrival.',
+      notes: 'Preferred partner. Arabic-speaking concierge.',
+    },
+    {
+      name: 'Novotel Moscow Centre',
+      type: 'hotel',
+      city: 'Moscow',
+      contactName: 'Ivan Petrov',
+      phone: '+74957890123',
+      email: 'h5307-re@accor.com',
+      commissionPct: 10,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 24h before arrival.',
+      notes: 'Family rooms. Walking distance to Red Square.',
+    },
+    {
+      name: 'Yakhorma Resort & Spa',
+      type: 'hotel',
+      city: 'Yakhorma',
+      contactName: 'Olga Belova',
+      phone: '+74951220011',
+      email: 'reservations@yakhorma.ru',
+      commissionPct: 12,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 7 days before check-in.',
+      notes: 'Countryside wellness. Halal kitchen.',
+    },
+    {
+      name: 'Al-Medina Halal Restaurant',
+      type: 'restaurant',
+      city: 'Moscow',
+      contactName: 'Ahmad Khalil',
+      phone: '+74956667788',
+      email: 'book@almedina.ru',
+      commissionPct: 10,
+      paymentTerms: 'cash',
+      cancellationPolicy: 'Cancel same morning for lunch; 4h for dinner.',
+      notes: 'Certified halal. Private dining for VIP.',
+    },
+    {
+      name: 'Novikov Restaurant',
+      type: 'restaurant',
+      city: 'Moscow',
+      contactName: 'Maria Novikova',
+      phone: '+74951112233',
+      email: 'events@novikov.ru',
+      commissionPct: 8,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: '48h for private rooms.',
+      notes: 'Halal menu on request. Dress code evening.',
+    },
+    {
+      name: 'White Rabbit',
+      type: 'restaurant',
+      city: 'Moscow',
+      contactName: 'Daria Orlova',
+      phone: '+74954445566',
+      email: 'reserve@whiterabbit.ru',
+      commissionPct: 5,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: '72h for window tables.',
+      notes: 'VIP window seating. Advance booking required.',
+    },
+    {
+      name: 'Yurt Restaurant (Halal)',
+      type: 'restaurant',
+      city: 'Yakhorma',
+      contactName: 'Ruslan Bekov',
+      phone: '+74950001122',
+      email: 'yurt@yakhorma.ru',
+      commissionPct: 0,
+      paymentTerms: 'cash',
+      cancellationPolicy: 'Same-day cancel OK.',
+      notes: 'Halal lamb and family platters.',
+    },
+    {
+      name: 'Moscow Premium Tours',
+      type: 'guide',
+      city: 'Moscow',
+      contactName: 'Pavel Smirnov',
+      phone: '+79031234567',
+      email: 'desk@mptours.ru',
+      commissionPct: 15,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 24h before tour.',
+      notes: 'EN/AR/RU guides. Kremlin skip-the-line.',
+    },
+    {
+      name: 'Natasha Ivanova — VIP Guide',
+      type: 'guide',
+      city: 'Moscow',
+      contactName: 'Natasha Ivanova',
+      phone: '+79035551212',
+      email: 'natasha.vip@guides.ru',
+      commissionPct: 0,
+      paymentTerms: 'cash',
+      cancellationPolicy: '48h notice.',
+      notes: 'Arabic + English. Royal package preferred.',
+    },
+    {
+      name: 'VIP Moscow Transfer',
+      type: 'bus',
+      city: 'Moscow',
+      contactName: 'Andrei Kozlov',
+      phone: '+74957770011',
+      email: 'ops@viptransfer.ru',
+      commissionPct: 8,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 12h before pickup.',
+      notes: 'Sprinter + minibus. Airport SVO/DME/VKO.',
+    },
+    {
+      name: 'Bolshoi Theatre (Tickets)',
+      type: 'activity',
+      city: 'Moscow',
+      contactName: 'Box Office Groups',
+      phone: '+74952505555',
+      email: 'groups@bolshoi.ru',
+      commissionPct: 0,
+      paymentTerms: 'voucher',
+      cancellationPolicy: 'Non-refundable once issued.',
+      notes: 'Dress circle / VIP box on request.',
+    },
+    {
+      name: 'Catherine Palace VIP',
+      type: 'activity',
+      city: 'St. Petersburg',
+      contactName: 'Anna Lebedeva',
+      phone: '+78123200000',
+      email: 'vip@tzar.ru',
+      commissionPct: 12,
+      paymentTerms: 'voucher',
+      cancellationPolicy: '72h before visit.',
+      notes: 'Early entry. Amber Room timed tickets.',
+    },
+    {
+      name: 'Hermitage Museum — SPb',
+      type: 'activity',
+      city: 'St. Petersburg',
+      contactName: 'Groups Desk',
+      phone: '+78127109079',
+      email: 'excursions@hermitage.ru',
+      commissionPct: 10,
+      paymentTerms: 'voucher',
+      cancellationPolicy: '24h before visit.',
+      notes: 'Skip-the-line group tickets.',
+    },
+    {
+      name: 'NordStar Local Drivers',
+      type: 'driver',
+      city: 'Moscow',
+      contactName: 'Igor Fedorov',
+      phone: '+79031110022',
+      email: 'ops@nordstar.example',
+      commissionPct: 15,
+      paymentTerms: 'bank_transfer',
+      cancellationPolicy: 'Free cancel 6h before shift.',
+      notes: 'Overflow fleet when Zeengo drivers are full.',
+    },
+  ];
+
+  let vendorSeeded = 0;
+  for (const sample of vendorSamples) {
+    const existing = await prisma.vendor.findFirst({
+      where: { name: sample.name, deletedAt: null },
+    });
+    if (existing) {
+      await prisma.vendor.update({
+        where: { id: existing.id },
+        data: sample,
+      });
+    } else {
+      await prisma.vendor.create({ data: sample });
+      vendorSeeded += 1;
+    }
+  }
+  console.log(`Vendors seeded: ${vendorSeeded} new (of ${vendorSamples.length})`);
+
   console.log('Seed complete — staff accounts (password: demo password):');
   for (const account of staffAccounts) {
     console.log(`  ${account.role.padEnd(12)} ${account.email}`);
