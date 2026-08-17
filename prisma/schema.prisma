@@ -194,6 +194,7 @@ model StaffUser {
   notifications            Notification[]       @relation("NotificationStaff")
   eodReportsGenerated      EodReport[]          @relation("EodReportGeneratedBy")
   settingsUpdated          Setting[]            @relation("SettingUpdatedBy")
+  emailsSent               EmailLog[]           @relation("EmailLogSentBy")
 
   @@index([role])
   @@map("staff_users")
@@ -343,6 +344,7 @@ model Booking {
   conversations     Conversation[]
   tasks             Task[]
   driverReviews     DriverReview[]
+  emailLogs         EmailLog[]
 
   @@index([status])
   @@index([clientId])
@@ -700,6 +702,27 @@ model EodReport {
   generatedByUser StaffUser @relation("EodReportGeneratedBy", fields: [generatedBy], references: [id], onDelete: Restrict)
 
   @@map("eod_reports")
+}
+
+model EmailLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String?  @map("booking_id") @db.Uuid
+  toEmail   String   @map("to_email")
+  toName    String?  @map("to_name")
+  template  String
+  subject   String
+  body      String
+  status    String
+  error     String?
+  sentBy    String   @map("sent_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking     Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  sentByUser  StaffUser @relation("EmailLogSentBy", fields: [sentBy], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([bookingId])
+  @@map("email_logs")
 }
 
 model AuditLog {

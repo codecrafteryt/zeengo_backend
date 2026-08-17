@@ -30,6 +30,7 @@ import { SosModule } from './sos/sos.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { VendorsModule } from './vendors/vendors.module';
+import { EmailsModule } from './emails/emails.module';
 import { AiModule } from './ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -67,6 +68,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     SosModule,
     ChatModule,
     VendorsModule,
+    EmailsModule,
     AiModule,
   ],
   controllers: [AppController],
