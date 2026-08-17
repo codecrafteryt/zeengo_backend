@@ -10,6 +10,7 @@ export type NotificationDto = {
   body: string | null;
   data: Record<string, unknown>;
   readAt: string | null;
+  isRead: boolean;
   createdAt: string;
 };
 
@@ -24,6 +25,7 @@ export function mapNotification(row: Notification): NotificationDto {
     body: row.body,
     data: (row.data as Record<string, unknown>) ?? {},
     readAt: row.readAt?.toISOString() ?? null,
+    isRead: Boolean(row.readAt),
     createdAt: row.createdAt.toISOString(),
   };
 }
