@@ -98,6 +98,35 @@ export class VipService {
     };
   }
 
+  async updatePrice(amount: number, user: AuthPrincipal) {
+    this.assertStaffWrite(user);
+    const rounded = Math.round(amount * 100) / 100;
+
+    await this.prisma.setting.upsert({
+      where: { key: 'vip_price' },
+      update: {
+        value: rounded as Prisma.InputJsonValue,
+        updatedBy: user.sub,
+      },
+      create: {
+        key: 'vip_price',
+        value: rounded as Prisma.InputJsonValue,
+        updatedBy: user.sub,
+      },
+    });
+
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'vip.price.update',
+      entity: 'settings',
+      entityId: null,
+      diff: { vip_price: rounded },
+    });
+
+    return this.overview(user);
+  }
+
   /** Active non-VIP bookings for activation dropdown. */
   async listCandidates(user: AuthPrincipal) {
     this.assertStaffRead(user);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { StaffRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -8,11 +8,13 @@ import { zodPipe } from '../common/pipes/zod-validation.pipe';
 import {
   activateVipSchema,
   escalateVipSchema,
+  updateVipPriceSchema,
   vipRequestSchema,
 } from './vip.schema';
 import type {
   ActivateVipDto,
   EscalateVipDto,
+  UpdateVipPriceDto,
   VipRequestDto,
 } from './vip.schema';
 import { VipService } from './vip.service';
@@ -39,6 +41,15 @@ export class VipController {
   @Roles(...VIP_READ_ROLES)
   overview(@CurrentUser() user: AuthPrincipal) {
     return this.vipService.overview(user);
+  }
+
+  @Put('price')
+  @Roles(...VIP_WRITE_ROLES)
+  updatePrice(
+    @Body(zodPipe(updateVipPriceSchema)) body: UpdateVipPriceDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.vipService.updatePrice(body.amount, user);
   }
 
   @Get('candidates')
