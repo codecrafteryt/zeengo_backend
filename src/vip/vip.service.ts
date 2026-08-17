@@ -69,7 +69,7 @@ export class VipService {
   async overview(user: AuthPrincipal): Promise<VipOverviewDto> {
     this.assertStaffRead(user);
 
-    const [totalVipBookings, pendingUpgradeRequests, vipRevenueAgg, vipPrice] =
+    const [totalVipBookings, pendingUpgradeRequests, vipRevenueAgg, vipPrice, opsManagers] =
       await Promise.all([
         this.prisma.booking.count({
           where: { isVip: true, status: BookingStatus.active },
@@ -85,16 +85,29 @@ export class VipService {
           _sum: { totalAmount: true },
         }),
         this.editRequests.getVipPrice(),
+        this.prisma.staffUser.findMany({
+          where: {
+            role: StaffRole.ops_manager,
+            isActive: true,
+            deletedAt: null,
+          },
+          orderBy: { fullName: 'asc' },
+          select: { id: true, fullName: true, phone: true, email: true },
+        }),
       ]);
+
+    const hotline =
+      opsManagers.find((m) => m.phone?.trim())?.phone?.trim() ?? VIP_HOTLINE;
 
     return {
       totalVipBookings,
       pendingUpgradeRequests,
       vipRevenue: decimalToNumber(vipRevenueAgg._sum.totalAmount),
       vipPrice,
-      hotline: VIP_HOTLINE,
+      hotline,
       slaMinutes: VIP_SLA_MINUTES,
       inclusions: [...VIP_INCLUSIONS],
+      opsManagers,
     };
   }
 

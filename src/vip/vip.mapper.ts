@@ -38,6 +38,13 @@ export type VipCandidateDto = {
   totalAmount: number;
 };
 
+export type VipOpsManagerDto = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string;
+};
+
 export type VipOverviewDto = {
   totalVipBookings: number;
   pendingUpgradeRequests: number;
@@ -46,6 +53,7 @@ export type VipOverviewDto = {
   hotline: string;
   slaMinutes: number;
   inclusions: string[];
+  opsManagers: VipOpsManagerDto[];
 };
 
 export type VipEscalateResultDto = {
