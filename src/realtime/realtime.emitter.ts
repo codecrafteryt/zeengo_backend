@@ -8,7 +8,12 @@ export type RealtimeEvent =
   | 'sos.resolved'
   | 'message.new'
   | 'message.translated'
-  | 'notification.new';
+  | 'notification.new'
+  | 'booking.created'
+  | 'driver.updated'
+  | 'task.updated'
+  | 'edit_request.created'
+  | 'edit_request.updated';
 
 @Injectable()
 export class RealtimeEmitter {

@@ -45,6 +45,10 @@ export class ChatService {
   ) {}
 
   async listConversations(user: AuthPrincipal) {
+    if (user.type === 'staff') {
+      await this.ensureOpsChannels(user);
+    }
+
     const participantKey = this.participantKey(user);
     const participants = await this.prisma.conversationParticipant.findMany({
       where: { participantKey },
@@ -105,19 +109,28 @@ export class ChatService {
         }
       }
 
-      for (const key of keys) {
-        const isStaff = key.startsWith('staff:');
-        const id = key.split(':')[1];
-        await tx.conversationParticipant.create({
-          data: {
+      if (dto.type === ConversationType.team) {
+        const staff = await tx.staffUser.findMany({
+          where: { deletedAt: null, isActive: true },
+          select: { id: true },
+        });
+        for (const s of staff) keys.add(`staff:${s.id}`);
+      }
+
+      await tx.conversationParticipant.createMany({
+        data: [...keys].map((key) => {
+          const isStaff = key.startsWith('staff:');
+          const id = key.split(':')[1];
+          return {
             conversationId: conversation.id,
             participantType: isStaff ? ParticipantType.staff : ParticipantType.client,
             participantKey: key,
             staffId: isStaff ? id : null,
             clientId: isStaff ? null : id,
-          },
-        });
-      }
+          };
+        }),
+        skipDuplicates: true,
+      });
 
       return conversation;
     });
@@ -246,6 +259,82 @@ export class ChatService {
         znCode: null as string | null,
       };
     });
+  }
+
+  private async ensureOpsChannels(user: AuthPrincipal) {
+    if (!user.role || !CHAT_STAFF_ROLES.includes(user.role)) return;
+
+    let team = await this.prisma.conversation.findFirst({
+      where: { type: ConversationType.team, title: 'Ops floor' },
+    });
+    if (!team) {
+      team = await this.prisma.conversation.create({
+        data: { type: ConversationType.team, title: 'Ops floor' },
+      });
+    }
+
+    const staff = await this.prisma.staffUser.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+    await this.prisma.conversationParticipant.createMany({
+      data: staff.map((s) => ({
+        conversationId: team.id,
+        participantType: ParticipantType.staff,
+        participantKey: `staff:${s.id}`,
+        staffId: s.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    const opsRoles: StaffRole[] = [
+      StaffRole.admin,
+      StaffRole.ops_manager,
+      StaffRole.support,
+    ];
+    if (opsRoles.includes(user.role)) {
+      const threads = await this.prisma.conversation.findMany({
+        where: {
+          type: { in: [ConversationType.booking_support, ConversationType.client_direct] },
+        },
+        select: { id: true },
+      });
+      if (threads.length) {
+        await this.prisma.conversationParticipant.createMany({
+          data: threads.map((t) => ({
+            conversationId: t.id,
+            participantType: ParticipantType.staff,
+            participantKey: `staff:${user.sub}`,
+            staffId: user.sub,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return;
+    }
+
+    if (user.role === StaffRole.driver) {
+      const assignments = await this.prisma.driverAssignment.findMany({
+        where: { driver: { userId: user.sub }, status: 'active' },
+        select: { bookingId: true },
+      });
+      const bookingIds = assignments.map((a) => a.bookingId);
+      if (!bookingIds.length) return;
+      const threads = await this.prisma.conversation.findMany({
+        where: { bookingId: { in: bookingIds } },
+        select: { id: true },
+      });
+      if (!threads.length) return;
+      await this.prisma.conversationParticipant.createMany({
+        data: threads.map((t) => ({
+          conversationId: t.id,
+          participantType: ParticipantType.staff,
+          participantKey: `staff:${user.sub}`,
+          staffId: user.sub,
+        })),
+        skipDuplicates: true,
+      });
+    }
   }
 
   private participantKey(user: AuthPrincipal): string {

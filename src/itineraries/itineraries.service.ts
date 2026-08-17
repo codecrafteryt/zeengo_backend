@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ItineraryItemStatus, StaffRole } from '@prisma/client';
+import { AssignmentStatus, ItineraryItemStatus, StaffRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -43,18 +43,36 @@ export class ItinerariesService {
     user: AuthPrincipal,
   ) {
     this.assertStaffWrite(user);
-    await this.ensureBookingExists(bookingId);
+    const booking = await this.ensureBookingExists(bookingId);
 
     const maxSort = await this.prisma.itineraryItem.aggregate({
       where: { bookingId, dayNumber: dto.dayNumber },
       _max: { sortOrder: true },
     });
 
+    let itemDate: Date | undefined = dto.itemDate ? new Date(dto.itemDate) : undefined;
+    if (!itemDate && booking.arrivalDate) {
+      itemDate = new Date(
+        Date.UTC(
+          booking.arrivalDate.getUTCFullYear(),
+          booking.arrivalDate.getUTCMonth(),
+          booking.arrivalDate.getUTCDate() + (dto.dayNumber - 1),
+        ),
+      );
+    }
+
+    const assignment = dto.driverId
+      ? null
+      : await this.prisma.driverAssignment.findFirst({
+          where: { bookingId, status: AssignmentStatus.active },
+          select: { driverId: true },
+        });
+
     const row = await this.prisma.itineraryItem.create({
       data: {
         bookingId,
         dayNumber: dto.dayNumber,
-        itemDate: dto.itemDate ? new Date(dto.itemDate) : undefined,
+        itemDate,
         startTime: dto.startTime ? this.parseTime(dto.startTime) : undefined,
         title: dto.title,
         description: dto.description,
@@ -62,7 +80,7 @@ export class ItinerariesService {
         lat: dto.lat,
         lng: dto.lng,
         vendorId: dto.vendorId,
-        driverId: dto.driverId,
+        driverId: dto.driverId ?? assignment?.driverId,
         status: dto.status,
         sortOrder: dto.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
       },

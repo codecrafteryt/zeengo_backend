@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   BookingStatus,
   ConversationType,
+  ParticipantType,
   Prisma,
   StaffRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
+import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -55,6 +57,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly realtime: RealtimeEmitter,
   ) {}
 
   async create(dto: CreateBookingDto, staffId: string) {
@@ -115,7 +118,7 @@ export class BookingsService {
         include: bookingInclude,
       });
 
-      await tx.conversation.create({
+      const conversation = await tx.conversation.create({
         data: {
           type: ConversationType.booking_support,
           bookingId: created.id,
@@ -123,8 +126,28 @@ export class BookingsService {
         },
       });
 
+      await tx.conversationParticipant.createMany({
+        data: [
+          {
+            conversationId: conversation.id,
+            participantType: ParticipantType.staff,
+            participantKey: `staff:${staffId}`,
+            staffId,
+          },
+          {
+            conversationId: conversation.id,
+            participantType: ParticipantType.client,
+            participantKey: `client:${client.id}`,
+            clientId: client.id,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
       return created;
     });
+
+    this.realtime.emit('booking.created', mapBooking(booking, 0));
 
     return mapBooking(booking, 0);
   }

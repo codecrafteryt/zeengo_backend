@@ -8,7 +8,7 @@ import type { ListPaymentsHistoryQuery } from './payments.schema';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('splizer')
-@Roles(StaffRole.splizer)
+@Roles(StaffRole.splizer, StaffRole.admin, StaffRole.ops_manager)
 @Controller('splizer/clients')
 export class SplizerController {
   constructor(private readonly paymentsService: PaymentsService) {}

@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
+import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -51,6 +52,7 @@ export class DriversService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly realtime: RealtimeEmitter,
   ) {}
 
   async list(query: ListDriversQuery) {
@@ -148,7 +150,9 @@ export class DriversService {
       },
     });
 
-    return mapDriverListItem(row);
+    const mapped = mapDriverListItem(row);
+    this.realtime.emit('driver.updated', mapped);
+    return mapped;
   }
 
   async getStats(): Promise<DriverStatsDto> {
@@ -231,18 +235,52 @@ export class DriversService {
   async getSchedule(driverId: string, query: ScheduleQuery) {
     await this.ensureDriverProfile(driverId);
     const date = this.resolveDate(query.date);
+    const day = this.formatDate(date);
 
     const rows = await this.prisma.itineraryItem.findMany({
-      where: { driverId, itemDate: date },
+      where: {
+        OR: [
+          { driverId, itemDate: date },
+          {
+            booking: {
+              driverAssignments: {
+                some: {
+                  driverId,
+                  status: AssignmentStatus.active,
+                  startDate: { lte: date },
+                  OR: [{ endDate: null }, { endDate: { gte: date } }],
+                },
+              },
+            },
+          },
+        ],
+      },
       orderBy: [{ startTime: 'asc' }, { sortOrder: 'asc' }],
       include: {
         booking: { include: { client: true } },
       },
     });
 
+    const items = rows.filter((row) => {
+      const itemDay = row.itemDate
+        ? this.formatDate(row.itemDate)
+        : row.booking.arrivalDate
+          ? this.formatDate(
+              new Date(
+                Date.UTC(
+                  row.booking.arrivalDate.getUTCFullYear(),
+                  row.booking.arrivalDate.getUTCMonth(),
+                  row.booking.arrivalDate.getUTCDate() + (row.dayNumber - 1),
+                ),
+              ),
+            )
+          : null;
+      return itemDay === day;
+    });
+
     return {
-      date: this.formatDate(date),
-      items: rows.map(mapScheduleItem),
+      date: day,
+      items: items.map(mapScheduleItem),
     };
   }
 
@@ -304,7 +342,14 @@ export class DriversService {
         });
       });
 
-      return mapAssignment(row);
+      await this.prisma.itineraryItem.updateMany({
+        where: { bookingId: dto.bookingId },
+        data: { driverId: dto.driverId },
+      });
+
+      const mapped = mapAssignment(row);
+      this.realtime.emit('driver.updated', { driverId: dto.driverId, bookingId: dto.bookingId });
+      return mapped;
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -353,7 +398,16 @@ export class DriversService {
       throw AppError.notFound('ITINERARY_ITEM_NOT_FOUND', 'Itinerary item not found');
     }
     if (item.driverId !== profile.id) {
-      throw AppError.forbidden();
+      const assigned = await this.prisma.driverAssignment.findFirst({
+        where: {
+          bookingId: item.bookingId,
+          driverId: profile.id,
+          status: AssignmentStatus.active,
+        },
+      });
+      if (!assigned) {
+        throw AppError.forbidden();
+      }
     }
 
     const row = await this.prisma.itineraryItem.update({
@@ -411,7 +465,9 @@ export class DriversService {
       await this.redis.setJson(gpsKey, { ...cached, status: dto.status });
     }
 
-    return mapDriverListItem(row);
+    const mapped = mapDriverListItem(row);
+    this.realtime.emit('driver.updated', mapped);
+    return mapped;
   }
 
   async recordGps(user: AuthPrincipal, dto: GpsPingDto) {

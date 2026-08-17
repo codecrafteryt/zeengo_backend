@@ -18,6 +18,7 @@ import {
 } from '../common/pagination/pagination';
 import { decimalToNumber } from '../common/decimal.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import {
   CreateEditRequestDto,
   ListEditRequestsQuery,
@@ -50,6 +51,7 @@ export class EditRequestsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly realtime: RealtimeEmitter,
   ) {}
 
   async list(query: ListEditRequestsQuery, user: AuthPrincipal) {
@@ -158,6 +160,9 @@ export class EditRequestsService {
       include: editRequestInclude,
     });
 
+    const mapped = mapEditRequest(row);
+    this.realtime.emit('edit_request.created', mapped);
+
     await this.notifications.createAndFanout({
       staffRoles: [StaffRole.admin, StaffRole.ops_manager, StaffRole.support],
       type: 'edit_request',
@@ -166,7 +171,7 @@ export class EditRequestsService {
       data: { editRequestId: row.id, bookingId: booking.id, type: dto.type },
     });
 
-    return mapEditRequest(row);
+    return mapped;
   }
 
   async approve(id: string, dto: ReviewEditRequestDto, user: AuthPrincipal) {
@@ -216,7 +221,9 @@ export class EditRequestsService {
       });
     }
 
-    return mapEditRequest(row);
+    const approved = mapEditRequest(row);
+    this.realtime.emit('edit_request.updated', approved);
+    return approved;
   }
 
   async reject(id: string, dto: ReviewEditRequestDto, user: AuthPrincipal) {
@@ -258,7 +265,9 @@ export class EditRequestsService {
       });
     }
 
-    return mapEditRequest(row);
+    const rejected = mapEditRequest(row);
+    this.realtime.emit('edit_request.updated', rejected);
+    return rejected;
   }
 
   async createForBooking(
@@ -291,7 +300,9 @@ export class EditRequestsService {
       include: editRequestInclude,
     });
 
-    return mapEditRequest(row);
+    const mapped = mapEditRequest(row);
+    this.realtime.emit('edit_request.created', mapped);
+    return mapped;
   }
 
   private async applyDateChange(

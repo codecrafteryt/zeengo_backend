@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, StaffRole, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -35,7 +36,10 @@ const taskInclude = {
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeEmitter,
+  ) {}
 
   async list(query: ListTasksQuery, user: AuthPrincipal) {
     this.assertStaffRead(user);
@@ -118,7 +122,9 @@ export class TasksService {
       include: taskInclude,
     });
 
-    return mapTask(row);
+    const created = mapTask(row);
+    this.realtime.emit('task.updated', created);
+    return created;
   }
 
   async update(id: string, dto: UpdateTaskDto, user: AuthPrincipal) {
@@ -165,7 +171,9 @@ export class TasksService {
       include: taskInclude,
     });
 
-    return mapTask(row);
+    const updated = mapTask(row);
+    this.realtime.emit('task.updated', updated);
+    return updated;
   }
 
   async complete(id: string, user: AuthPrincipal) {
@@ -189,7 +197,9 @@ export class TasksService {
       include: taskInclude,
     });
 
-    return mapTask(row);
+    const completed = mapTask(row);
+    this.realtime.emit('task.updated', completed);
+    return completed;
   }
 
   private async ensureTask(id: string) {
