@@ -20,6 +20,8 @@ const QUEUE_NAMES = ['translation', 'push', 'ai', 'payments', 'digest', 'cleanup
       useFactory: (config: ConfigService) => ({
         connection: {
           url: config.getOrThrow<string>('REDIS_URL'),
+          family: 0,
+          maxRetriesPerRequest: null,
         },
       }),
     }),

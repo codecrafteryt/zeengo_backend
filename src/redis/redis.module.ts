@@ -52,6 +52,7 @@ export class RedisService implements OnModuleDestroy {
       useFactory: (config: ConfigService) => {
         const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
         const client = new Redis(url, {
+          family: 0,
           maxRetriesPerRequest: null,
           retryStrategy: (times) => Math.min(times * 200, 3000),
         });

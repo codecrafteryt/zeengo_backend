@@ -32,6 +32,8 @@ function resolveCorsOrigins(): boolean | string[] {
 }
 
 async function bootstrap() {
+  // eslint-disable-next-line no-console
+  console.log('boot: starting nest');
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(helmet());
@@ -59,4 +61,8 @@ async function bootstrap() {
   // eslint-disable-next-line no-console
   console.log(`OpenAPI docs at http://0.0.0.0:${port}/api/docs`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('boot failed', err);
+  process.exit(1);
+});
