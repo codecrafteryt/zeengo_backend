@@ -29,4 +29,4 @@ RUN npm ci --omit=dev && npx prisma generate
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && echo AFTER_MIGRATE && node dist/main.js"]
+CMD ["node", "dist/main.js"]
