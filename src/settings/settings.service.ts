@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
@@ -27,15 +28,16 @@ export class SettingsService {
   }
 
   async upsert(actorId: string, key: string, value: unknown) {
+    const jsonValue = value as Prisma.InputJsonValue;
     const setting = await this.prisma.setting.upsert({
       where: { key },
       update: {
-        value: value as object,
+        value: jsonValue,
         updatedBy: actorId,
       },
       create: {
         key,
-        value: value as object,
+        value: jsonValue,
         updatedBy: actorId,
       },
     });

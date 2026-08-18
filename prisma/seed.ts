@@ -1,5 +1,5 @@
-import { PrismaClient, StaffRole } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { PrismaClient } from '@prisma/client';
+import { ensureDemoStaff } from '../src/auth/ensure-demo-staff';
 
 const prisma = new PrismaClient();
 
@@ -7,88 +7,15 @@ async function main(): Promise<void> {
   // Booking ZN codes use this Postgres sequence
   await prisma.$executeRawUnsafe(`CREATE SEQUENCE IF NOT EXISTS zn_seq START 1`);
 
-  // Shared demo password for all seeded staff roles
   const demoPassword =
     process.env.SEED_STAFF_PASSWORD?.trim() ||
     process.env.SEED_ADMIN_PASSWORD?.trim() ||
     '1234567';
-  const passwordHash = await argon2.hash(demoPassword);
+  await ensureDemoStaff(prisma, demoPassword);
 
-  const staffAccounts: Array<{
-    email: string;
-    fullName: string;
-    role: StaffRole;
-  }> = [
-    {
-      email: process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@zeengo.com',
-      fullName: 'Zeengo Admin',
-      role: StaffRole.admin,
-    },
-    {
-      email: 'ops@zeengo.com',
-      fullName: 'Ops Manager',
-      role: StaffRole.ops_manager,
-    },
-    {
-      email: 'splizer@zeengo.com',
-      fullName: 'Splizer User',
-      role: StaffRole.splizer,
-    },
-    {
-      email: 'driver@zeengo.com',
-      fullName: 'Demo Driver',
-      role: StaffRole.driver,
-    },
-    {
-      email: 'support@zeengo.com',
-      fullName: 'Support Agent',
-      role: StaffRole.support,
-    },
-  ];
-
-  let admin = null as Awaited<ReturnType<typeof prisma.staffUser.upsert>> | null;
-
-  for (const account of staffAccounts) {
-    const user = await prisma.staffUser.upsert({
-      where: { email: account.email },
-      update: {
-        fullName: account.fullName,
-        passwordHash,
-        role: account.role,
-        isActive: true,
-        deletedAt: null,
-      },
-      create: {
-        fullName: account.fullName,
-        email: account.email,
-        passwordHash,
-        role: account.role,
-        isActive: true,
-      },
-    });
-    if (account.role === StaffRole.admin) {
-      admin = user;
-    }
-    if (account.role === StaffRole.driver) {
-      await prisma.driverProfile.upsert({
-        where: { userId: user.id },
-        update: {
-          vehicleMake: 'Mercedes',
-          vehicleModel: 'V-Class',
-          plateNumber: 'A123BC77',
-          status: 'available',
-        },
-        create: {
-          userId: user.id,
-          vehicleMake: 'Mercedes',
-          vehicleModel: 'V-Class',
-          plateNumber: 'A123BC77',
-          status: 'available',
-        },
-      });
-    }
-  }
-
+  const admin = await prisma.staffUser.findUnique({
+    where: { email: process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@zeengo.com' },
+  });
   if (!admin) {
     throw new Error('Admin staff user was not seeded');
   }

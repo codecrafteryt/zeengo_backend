@@ -18,6 +18,7 @@ export const envSchema = z.object({
   STRIPE_LINK_DEFAULT_EXPIRY_HOURS: z.coerce.number().default(48),
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
+  SEED_STAFF_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

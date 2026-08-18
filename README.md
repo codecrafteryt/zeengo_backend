@@ -20,7 +20,9 @@ npm run db:setup       # migrate + seed
 npm run start:dev
 ```
 
-If Docker is unavailable, run Redis (`redis-server`) and Homebrew `postgresql@16` (this machine uses port **5433**), then set `DATABASE_URL` accordingly before `npm run db:setup`.
+If Docker is unavailable, run Redis (`redis-server`) and local Postgres on **5432**. This machine's live schema is database **zeengo_v1**:
+
+`DATABASE_URL=`
 
 | Resource | URL |
 |---|---|
