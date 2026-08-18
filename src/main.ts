@@ -1,3 +1,4 @@
+import { writeSync } from 'fs';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -32,8 +33,7 @@ function resolveCorsOrigins(): boolean | string[] {
 }
 
 async function bootstrap() {
-  // eslint-disable-next-line no-console
-  console.log('boot: starting nest');
+  writeSync(1, 'boot: starting nest\n');
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.use(helmet());
@@ -56,10 +56,8 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');
-  // eslint-disable-next-line no-console
-  console.log(`Zeengo API listening on http://0.0.0.0:${port}/api/v1`);
-  // eslint-disable-next-line no-console
-  console.log(`OpenAPI docs at http://0.0.0.0:${port}/api/docs`);
+  writeSync(1, `Zeengo API listening on http://0.0.0.0:${port}/api/v1\n`);
+  writeSync(1, `OpenAPI docs at http://0.0.0.0:${port}/api/docs\n`);
 }
 bootstrap().catch((err) => {
   // eslint-disable-next-line no-console

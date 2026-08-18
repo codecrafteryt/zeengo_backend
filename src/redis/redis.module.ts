@@ -1,8 +1,21 @@
 import { Global, Inject, Injectable, Module, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
+
+export function redisConnection(urlString: string): RedisOptions {
+  const u = new URL(urlString);
+  return {
+    host: u.hostname,
+    port: Number(u.port || 6379),
+    username: u.username ? decodeURIComponent(u.username) : undefined,
+    password: u.password ? decodeURIComponent(u.password) : undefined,
+    family: 0,
+    maxRetriesPerRequest: null,
+    retryStrategy: (times) => Math.min(times * 200, 3000),
+  };
+}
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
@@ -51,11 +64,7 @@ export class RedisService implements OnModuleDestroy {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
-        const client = new Redis(url, {
-          family: 0,
-          maxRetriesPerRequest: null,
-          retryStrategy: (times) => Math.min(times * 200, 3000),
-        });
+        const client = new Redis(redisConnection(url));
         let lastErrorLog = 0;
         // Avoid ioredis "Unhandled error event" log spam while still reconnecting
         client.on('error', (err) => {
