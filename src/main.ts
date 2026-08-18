@@ -52,11 +52,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  const port = Number(process.env.PORT ?? 3000);
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`Zeengo API listening on http://localhost:${port}/api/v1`);
+  console.log(`Zeengo API listening on http://0.0.0.0:${port}/api/v1`);
   // eslint-disable-next-line no-console
-  console.log(`OpenAPI docs at http://localhost:${port}/api/docs`);
+  console.log(`OpenAPI docs at http://0.0.0.0:${port}/api/docs`);
 }
 bootstrap();
