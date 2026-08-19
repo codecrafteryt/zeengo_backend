@@ -449,6 +449,9 @@ export class PaymentsService {
   ): Prisma.PaymentWhereInput {
     const where: Prisma.PaymentWhereInput = {};
 
+    if (query.status) where.status = query.status;
+    if (query.method) where.method = query.method;
+
     if (query.from || query.to) {
       where.createdAt = {};
       if (query.from) where.createdAt.gte = new Date(query.from);

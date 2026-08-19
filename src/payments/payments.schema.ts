@@ -43,6 +43,8 @@ export const createStripeLinkSchema = z
 export const listPaymentsHistoryQuerySchema = paginationSchema.extend({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  status: z.nativeEnum(PaymentStatus).optional(),
+  method: z.nativeEnum(PaymentMethod).optional(),
 });
 
 export const listSplizerClientsQuerySchema = paginationSchema.extend({

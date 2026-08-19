@@ -18,6 +18,13 @@ export class FinanceController {
     return this.financeService.summary();
   }
 
+  @Get('revenue-series')
+  revenueSeries(
+    @Query(zodPipe(revenueByMethodQuerySchema)) query: RevenueByMethodQuery,
+  ) {
+    return this.financeService.revenueSeries(query);
+  }
+
   @Get('revenue-by-method')
   revenueByMethod(
     @Query(zodPipe(revenueByMethodQuerySchema)) query: RevenueByMethodQuery,
