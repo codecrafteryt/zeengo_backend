@@ -27,6 +27,8 @@ export type SplizerClientDto = {
   clientName: string;
   clientPhone: string;
   status: string;
+  packageName: string | null;
+  partySize: number;
   totalAmount: number;
   paidAmount: number;
   dueAmount: number;
@@ -79,9 +81,11 @@ export function mapSplizerClient(row: {
   id: string;
   znCode: string;
   status: string;
+  partySize: number;
   totalAmount: Decimal;
   arrivalDate: Date | null;
   client: { fullName: string; phone: string };
+  package?: { name: string } | null;
   paidAmount: number;
 }): SplizerClientDto {
   const totalAmount = decimalToNumber(row.totalAmount);
@@ -91,9 +95,11 @@ export function mapSplizerClient(row: {
     clientName: row.client.fullName,
     clientPhone: row.client.phone,
     status: row.status,
+    packageName: row.package?.name ?? null,
+    partySize: row.partySize,
     totalAmount,
     paidAmount: row.paidAmount,
-    dueAmount: Math.max(0, totalAmount - row.paidAmount),
+    dueAmount: Math.max(0, Math.round((totalAmount - row.paidAmount) * 100) / 100),
     arrivalDate: row.arrivalDate?.toISOString().slice(0, 10) ?? null,
   };
 }

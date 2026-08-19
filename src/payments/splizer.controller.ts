@@ -3,8 +3,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { StaffRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { zodPipe } from '../common/pipes/zod-validation.pipe';
-import { listPaymentsHistoryQuerySchema } from './payments.schema';
-import type { ListPaymentsHistoryQuery } from './payments.schema';
+import { listSplizerClientsQuerySchema } from './payments.schema';
+import type { ListSplizerClientsQuery } from './payments.schema';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('splizer')
@@ -14,7 +14,7 @@ export class SplizerController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Get()
-  list(@Query(zodPipe(listPaymentsHistoryQuerySchema)) query: ListPaymentsHistoryQuery) {
+  list(@Query(zodPipe(listSplizerClientsQuerySchema)) query: ListSplizerClientsQuery) {
     return this.paymentsService.listSplizerClients(query);
   }
 

@@ -14,6 +14,7 @@ const CASH_METHODS: PaymentMethod[] = [
   PaymentMethod.cash,
   PaymentMethod.rajhi_transfer,
   PaymentMethod.usdt_trc20,
+  PaymentMethod.usdt_bep20,
 ];
 
 @Injectable()

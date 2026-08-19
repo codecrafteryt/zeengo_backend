@@ -43,6 +43,7 @@ enum PaymentMethod {
   stripe
   rajhi_transfer
   usdt_trc20
+  usdt_bep20
 }
 
 enum PaymentStatus {

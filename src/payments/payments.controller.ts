@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { StaffRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -62,6 +62,12 @@ export class PaymentsController {
     @Query(zodPipe(listPaymentsHistoryQuerySchema)) query: ListPaymentsHistoryQuery,
   ) {
     return this.paymentsService.listHistory(query);
+  }
+
+  @Get(':id')
+  @Roles(...PAYMENT_HISTORY_ROLES)
+  receipt(@Param('id') id: string) {
+    return this.paymentsService.getReceipt(id);
   }
 
   @Get()

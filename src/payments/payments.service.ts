@@ -4,6 +4,7 @@ import { PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
+import { decimalToNumber } from '../common/decimal.util';
 import { AuditService } from '../common/audit.service';
 import { pageMeta, toSkipTake } from '../common/pagination/pagination';
 import { BookingsService } from '../bookings/bookings.service';
@@ -12,6 +13,7 @@ import {
   CreateStripeLinkDto,
   ListPaymentsHistoryQuery,
   ListPaymentsQuery,
+  ListSplizerClientsQuery,
   RecordCashPaymentDto,
 } from './payments.schema';
 import {
@@ -42,18 +44,28 @@ export class PaymentsService {
     private readonly bookings: BookingsService,
     private readonly realtime: RealtimeEmitter,
   ) {
-    const key = this.config.get<string>('STRIPE_SECRET_KEY', '');
-    if (key.startsWith('sk_')) {
+    const key = this.config.get<string>('STRIPE_SECRET_KEY', '').trim();
+    if (key.startsWith('sk_') && !key.includes('replace')) {
       this.stripe = new Stripe(key);
     }
   }
 
   async recordCashPayment(dto: RecordCashPaymentDto, staffId: string) {
-    await this.ensureBooking(dto.bookingId);
+    const booking = await this.resolveBookingRef(dto);
+    const due = await this.getDueAmount(booking.id);
+    if (due <= 0) {
+      throw new AppError('NOTHING_DUE', 'This booking is already fully paid');
+    }
+    if (dto.amount - due > 0.009) {
+      throw new AppError(
+        'AMOUNT_EXCEEDS_DUE',
+        `Amount cannot exceed remaining due (${due})`,
+      );
+    }
 
     const payment = await this.prisma.payment.create({
       data: {
-        bookingId: dto.bookingId,
+        bookingId: booking.id,
         amount: dto.amount,
         method: dto.method as PaymentMethod,
         status: PaymentStatus.paid,
@@ -65,7 +77,7 @@ export class PaymentsService {
       include: paymentInclude,
     });
 
-    await this.bookings.invalidatePaidCache(dto.bookingId);
+    await this.bookings.invalidatePaidCache(booking.id);
 
     await this.audit.log({
       actorType: 'staff',
@@ -74,7 +86,8 @@ export class PaymentsService {
       entity: 'payment',
       entityId: payment.id,
       diff: {
-        bookingId: dto.bookingId,
+        bookingId: booking.id,
+        znCode: booking.znCode,
         amount: dto.amount,
         method: dto.method,
       },
@@ -86,7 +99,8 @@ export class PaymentsService {
   }
 
   async createStripeLink(dto: CreateStripeLinkDto, staffId: string) {
-    const booking = await this.ensureBooking(dto.bookingId);
+    const booking = await this.resolveBookingRef(dto);
+    const amount = await this.resolveStripeAmount(booking.id, dto);
     const defaultExpiry = this.config.get<number>(
       'STRIPE_LINK_DEFAULT_EXPIRY_HOURS',
       48,
@@ -96,10 +110,11 @@ export class PaymentsService {
 
     const payment = await this.prisma.payment.create({
       data: {
-        bookingId: dto.bookingId,
-        amount: dto.amount,
+        bookingId: booking.id,
+        amount,
         method: PaymentMethod.stripe,
         status: PaymentStatus.sent,
+        collectedBy: staffId,
         linkExpiresAt,
       },
     });
@@ -116,14 +131,14 @@ export class PaymentsService {
               product_data: {
                 name: `Zeengo booking ${booking.znCode}`,
               },
-              unit_amount: Math.round(dto.amount * 100),
+              unit_amount: Math.round(amount * 100),
             },
             quantity: 1,
           },
         ],
         metadata: {
           paymentId: payment.id,
-          bookingId: dto.bookingId,
+          bookingId: booking.id,
           znCode: booking.znCode,
         },
       });
@@ -150,8 +165,8 @@ export class PaymentsService {
       entity: 'payment',
       entityId: payment.id,
       diff: {
-        bookingId: dto.bookingId,
-        amount: dto.amount,
+        bookingId: booking.id,
+        amount,
         stripeLinkUrl,
         linkExpiresAt: linkExpiresAt.toISOString(),
       },
@@ -220,9 +235,22 @@ export class PaymentsService {
     };
   }
 
-  async listSplizerClients(query: ListPaymentsHistoryQuery) {
+  async getReceipt(id: string) {
+    const row = await this.prisma.payment.findUnique({
+      where: { id },
+      include: historyInclude,
+    });
+    if (!row) {
+      throw AppError.notFound('PAYMENT_NOT_FOUND', 'Payment not found');
+    }
+    return mapPaymentHistoryItem(row);
+  }
+
+  async listSplizerClients(query: ListSplizerClientsQuery) {
     const { page, limit, skip, take } = toSkipTake(query);
     const where: Prisma.BookingWhereInput = {};
+
+    if (query.status) where.status = query.status;
 
     if (query.search?.trim()) {
       const term = query.search.trim();
@@ -239,7 +267,7 @@ export class PaymentsService {
         orderBy: { arrivalDate: 'asc' },
         skip,
         take,
-        include: { client: true },
+        include: { client: true, package: true },
       }),
       this.prisma.booking.count({ where }),
     ]);
@@ -255,9 +283,10 @@ export class PaymentsService {
   }
 
   async getSplizerClientByCode(znCode: string) {
-    const booking = await this.prisma.booking.findUnique({
-      where: { znCode },
-      include: { client: true },
+    const code = znCode.trim();
+    const booking = await this.prisma.booking.findFirst({
+      where: { znCode: { equals: code, mode: 'insensitive' } },
+      include: { client: true, package: true },
     });
 
     if (!booking) {
@@ -445,6 +474,64 @@ export class PaymentsService {
     }
 
     return where;
+  }
+
+  private async resolveBookingRef(ref: { bookingId?: string; znCode?: string }) {
+    if (ref.bookingId) {
+      return this.ensureBooking(ref.bookingId);
+    }
+    const code = ref.znCode?.trim();
+    if (!code) {
+      throw new AppError('BOOKING_REQUIRED', 'bookingId or znCode is required');
+    }
+    const booking = await this.prisma.booking.findFirst({
+      where: { znCode: { equals: code, mode: 'insensitive' } },
+    });
+    if (!booking) {
+      throw AppError.notFound('BOOKING_NOT_FOUND', 'Booking not found');
+    }
+    return booking;
+  }
+
+  private async getDueAmount(bookingId: string): Promise<number> {
+    const booking = await this.ensureBooking(bookingId);
+    const paid = await this.bookings.getPaidAmount(bookingId);
+    return Math.max(
+      0,
+      Math.round((decimalToNumber(booking.totalAmount) - paid) * 100) / 100,
+    );
+  }
+
+  private async resolveStripeAmount(
+    bookingId: string,
+    dto: CreateStripeLinkDto,
+  ): Promise<number> {
+    const due = await this.getDueAmount(bookingId);
+    if (due <= 0) {
+      throw new AppError('NOTHING_DUE', 'This booking is already fully paid');
+    }
+
+    const mode = dto.amountMode ?? 'remaining';
+    let amount = dto.amount ?? due;
+
+    if (mode === 'remaining') {
+      amount = due;
+    } else if (mode === 'deposit') {
+      const booking = await this.ensureBooking(bookingId);
+      const deposit = Math.round(decimalToNumber(booking.totalAmount) * 0.3 * 100) / 100;
+      amount = Math.min(due, Math.max(1, deposit));
+    } else if (dto.amount == null) {
+      throw new AppError('AMOUNT_REQUIRED', 'Custom amount is required');
+    }
+
+    if (amount - due > 0.009) {
+      throw new AppError(
+        'AMOUNT_EXCEEDS_DUE',
+        `Amount cannot exceed remaining due (${due})`,
+      );
+    }
+
+    return Math.round(amount * 100) / 100;
   }
 
   private async ensureBooking(bookingId: string) {
