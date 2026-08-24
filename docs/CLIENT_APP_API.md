@@ -300,6 +300,8 @@ OTP purpose: `reset_password`.
 
 **Auth:** public (body mein refresh token)
 
+Session restore: access JWT ~15m ka hota hai. App start / 401 pe ye call karo. Client refresh token **JWT** hai (30d) — Redis pe depend nahi karta. Same refresh token dubara use ho sakta hai jab tak expire na ho.
+
 **Body:** `{ "refreshToken": "string" }`
 
 **Response `data`**
@@ -310,6 +312,8 @@ OTP purpose: `reset_password`.
   "refreshToken": "string"
 }
 ```
+
+Naya `refreshToken` store kar lo. Purana client refresh JWT bhi 30d tak valid rehta hai.
 
 ---
 

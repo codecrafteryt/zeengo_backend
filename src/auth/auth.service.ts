@@ -345,31 +345,38 @@ export class AuthService {
   async refresh(refreshToken: string) {
     const hash = hashToken(refreshToken);
     const key = `refresh:${hash}`;
-    const payload = await this.redis.getJson<TokenPayload>(key);
-    if (!payload) {
-      throw AppError.unauthorized('Invalid or expired refresh token');
+
+    let stored: TokenPayload | null = null;
+    try {
+      stored = await this.redis.getJson<TokenPayload>(key);
+    } catch (err) {
+      this.logger.warn(
+        `Refresh Redis lookup failed: ${(err as Error).message}`,
+      );
     }
 
-    await this.redis.del(key);
-
-    if (payload.type === 'staff') {
+    if (stored?.type === 'staff') {
+      await this.redis.del(key);
       const staff = await this.prisma.staffUser.findFirst({
-        where: { id: payload.sub, deletedAt: null, isActive: true },
+        where: { id: stored.sub, deletedAt: null, isActive: true },
       });
       if (!staff) {
         throw AppError.unauthorized('Invalid or expired refresh token');
       }
-      payload.role = staff.role;
-    } else {
-      const client = await this.prisma.client.findFirst({
-        where: { id: payload.sub, deletedAt: null },
-      });
-      if (!client || !client.phoneVerifiedAt) {
-        throw AppError.unauthorized('Invalid or expired refresh token');
-      }
+      stored.role = staff.role;
+      return this.issueTokens(stored);
     }
 
-    return this.issueTokens(payload);
+    if (stored?.type === 'client') {
+      try {
+        await this.redis.del(key);
+      } catch {
+        /* client session no longer depends on Redis */
+      }
+      return this.issueClientSession(stored.sub);
+    }
+
+    return this.refreshClientJwt(refreshToken);
   }
 
   async logout(refreshToken: string) {
@@ -433,6 +440,33 @@ export class AuthService {
     return { message: 'FCM token saved' };
   }
 
+  private async issueClientSession(clientId: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, deletedAt: null },
+    });
+    if (!client) {
+      throw AppError.unauthorized('Invalid or expired refresh token');
+    }
+    return this.issueTokens({ sub: client.id, type: 'client' });
+  }
+
+  private async refreshClientJwt(refreshToken: string) {
+    let decoded: { sub?: string; type?: string; typ?: string };
+    try {
+      decoded = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw AppError.unauthorized('Invalid or expired refresh token');
+    }
+
+    if (decoded.type !== 'client' || decoded.typ !== 'refresh' || !decoded.sub) {
+      throw AppError.unauthorized('Invalid or expired refresh token');
+    }
+
+    return this.issueClientSession(decoded.sub);
+  }
+
   private async issueTokens(payload: TokenPayload) {
     const accessToken = await this.jwtService.signAsync(
       {
@@ -445,6 +479,17 @@ export class AuthService {
         expiresIn: this.config.get<string>('JWT_ACCESS_TTL', '15m') as '15m',
       },
     );
+
+    if (payload.type === 'client') {
+      const refreshToken = await this.jwtService.signAsync(
+        { sub: payload.sub, type: 'client', typ: 'refresh' },
+        {
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+          expiresIn: this.config.get<string>('JWT_REFRESH_TTL', '30d') as '30d',
+        },
+      );
+      return { accessToken, refreshToken };
+    }
 
     const refreshToken = generateRefreshToken();
     const refreshHash = hashToken(refreshToken);
