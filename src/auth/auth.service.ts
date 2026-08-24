@@ -199,43 +199,39 @@ export class AuthService {
     throw AppError.validation('Unsupported OTP purpose');
   }
 
-  async clientLogin(phone: string, password: string) {
-    const normalizedPhone = phone.trim();
-    const client = await this.prisma.client.findUnique({
-      where: { phone: normalizedPhone },
+  async clientLogin(bookingCode: string) {
+    const code = bookingCode.trim();
+    const booking = await this.prisma.booking.findFirst({
+      where: { znCode: { equals: code, mode: 'insensitive' } },
+      include: { client: true },
     });
 
-    if (!client || client.deletedAt) {
-      throw AppError.unauthorized('Invalid phone or password');
-    }
-    if (!client.phoneVerifiedAt) {
-      throw AppError.unauthorized('Phone number is not verified');
-    }
-    if (!client.passwordHash) {
-      throw AppError.unauthorized('Invalid phone or password');
-    }
-
-    const valid = await verifyPassword(client.passwordHash, password);
-    if (!valid) {
-      throw AppError.unauthorized('Invalid phone or password');
+    if (!booking || booking.client.deletedAt) {
+      throw AppError.unauthorized('Invalid booking code');
     }
 
     const tokens = await this.issueTokens({
-      sub: client.id,
+      sub: booking.client.id,
       type: 'client',
     });
 
     await this.audit.log({
       actorType: 'client',
-      actorId: client.id,
+      actorId: booking.client.id,
       action: 'auth.client_login',
-      entity: 'clients',
-      entityId: client.id,
+      entity: 'bookings',
+      entityId: booking.id,
+      diff: { znCode: booking.znCode },
     });
 
     return {
       ...tokens,
-      user: this.mapClient(client),
+      user: this.mapClient(booking.client),
+      booking: {
+        id: booking.id,
+        znCode: booking.znCode,
+        status: booking.status,
+      },
     };
   }
 

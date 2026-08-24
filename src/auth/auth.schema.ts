@@ -21,10 +21,18 @@ export const verifyOtpSchema = z.object({
   purpose: z.nativeEnum(OtpPurpose),
 });
 
-export const clientLoginSchema = z.object({
-  phone: z.string().min(6).max(32),
-  password: z.string().min(1),
-});
+export const clientLoginSchema = z
+  .object({
+    bookingCode: z.string().min(2).max(32).optional(),
+    znCode: z.string().min(2).max(32).optional(),
+  })
+  .refine((value) => Boolean((value.bookingCode ?? value.znCode)?.trim()), {
+    message: 'bookingCode is required',
+    path: ['bookingCode'],
+  })
+  .transform((value) => ({
+    bookingCode: (value.bookingCode ?? value.znCode ?? '').trim(),
+  }));
 
 export const forgotPasswordSchema = z.object({
   phone: z.string().min(6).max(32),

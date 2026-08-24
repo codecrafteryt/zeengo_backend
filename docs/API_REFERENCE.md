@@ -136,7 +136,7 @@ Response (shape):
 POST /api/v1/auth/client/login
 Content-Type: application/json
 
-{ "phone": "+9665xxxxxxx", "password": "secret" }
+{ "bookingCode": "ZN0001" }
 ```
 
 ### 3) Authenticated call
@@ -195,7 +195,7 @@ Legend in each table:
 | POST | `/auth/staff/login` | ❌ | Public | **Body:** `email`, `password` | Dashboard login |
 | POST | `/auth/client/register` | ❌ | Public | **Body:** `fullName`, `phone`, `password`, `email?`, `nationality?`, `preferredLang?` | Start register + OTP |
 | POST | `/auth/client/verify-otp` | ❌ | Public | **Body:** `phone`, `code` (6 digits), `purpose` (`register`\|`login`\|`reset_password`) | Verify OTP → tokens (register) |
-| POST | `/auth/client/login` | ❌ | Public | **Body:** `phone`, `password` | App login |
+| POST | `/auth/client/login` | ❌ | Public | **Body:** `bookingCode` (or `znCode`) | App login by booking ZN code |
 | POST | `/auth/forgot-password` | ❌ | Public | **Body:** `phone` | Send reset OTP |
 | POST | `/auth/reset-password` | ❌ | Public | **Body:** `phone`, `code`, `newPassword` | Set new password |
 | POST | `/auth/change-password` | ✅ | Any logged-in | **Body:** `currentPassword`, `newPassword` | Change password |

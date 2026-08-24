@@ -48,10 +48,11 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('client/login')
   clientLogin(@Body(new ZodValidationPipe(clientLoginSchema)) body: unknown) {
     const input = body as ReturnType<typeof clientLoginSchema.parse>;
-    return this.authService.clientLogin(input.phone, input.password);
+    return this.authService.clientLogin(input.bookingCode);
   }
 
   @Public()
