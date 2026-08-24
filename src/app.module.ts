@@ -33,6 +33,8 @@ import { VendorsModule } from './vendors/vendors.module';
 import { EmailsModule } from './emails/emails.module';
 import { AiModule } from './ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
+import { OperationsModule } from './operations/operations.module';
+import { ClientPortalModule } from './client-portal/client-portal.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
@@ -68,6 +70,8 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     SosModule,
     ChatModule,
     VendorsModule,
+    OperationsModule,
+    ClientPortalModule,
     EmailsModule,
     AiModule,
   ],

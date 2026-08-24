@@ -35,6 +35,9 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Local DB dump/restore artifacts (may contain prod backups)
+.db-sync/
+
 # dotenv environment variable files
 .env
 .env.development.local

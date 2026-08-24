@@ -34,6 +34,10 @@ export const clientLoginSchema = z
     bookingCode: (value.bookingCode ?? value.znCode ?? '').trim(),
   }));
 
+export const clientZnLoginSchema = z.object({
+  znCode: z.string().trim().min(2).max(32),
+});
+
 export const forgotPasswordSchema = z.object({
   phone: z.string().min(6).max(32),
 });

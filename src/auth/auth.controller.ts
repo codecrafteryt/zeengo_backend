@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import {
   changePasswordSchema,
   clientLoginSchema,
+  clientZnLoginSchema,
   clientRegisterSchema,
   fcmTokenSchema,
   forgotPasswordSchema,
@@ -53,6 +54,14 @@ export class AuthController {
   clientLogin(@Body(new ZodValidationPipe(clientLoginSchema)) body: unknown) {
     const input = body as ReturnType<typeof clientLoginSchema.parse>;
     return this.authService.clientLogin(input.bookingCode);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Post('client/zn-login')
+  clientZnLogin(@Body(new ZodValidationPipe(clientZnLoginSchema)) body: unknown) {
+    const input = body as ReturnType<typeof clientZnLoginSchema.parse>;
+    return this.authService.clientLoginByZnCode(input.znCode);
   }
 
   @Public()

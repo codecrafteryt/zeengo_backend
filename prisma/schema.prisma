@@ -75,6 +75,15 @@ enum VendorType {
   bus
   activity
   driver
+  service
+  b2b
+}
+
+enum BookingStaffRole {
+  coordinator
+  sales
+  guide
+  support
 }
 
 enum VendorBookingStatus {
@@ -196,6 +205,8 @@ model StaffUser {
   eodReportsGenerated      EodReport[]          @relation("EodReportGeneratedBy")
   settingsUpdated          Setting[]            @relation("SettingUpdatedBy")
   emailsSent               EmailLog[]           @relation("EmailLogSentBy")
+  bookingStaffLinks        BookingStaffLink[]   @relation("BookingStaffLinkStaff")
+  bookingStaffLinksCreated BookingStaffLink[]   @relation("BookingStaffLinkCreatedBy")
 
   @@index([role])
   @@map("staff_users")
@@ -346,6 +357,8 @@ model Booking {
   tasks             Task[]
   driverReviews     DriverReview[]
   emailLogs         EmailLog[]
+  dayPlans          BookingDayPlan[]
+  staffLinks        BookingStaffLink[]
 
   @@index([status])
   @@index([clientId])
@@ -386,22 +399,28 @@ model Payment {
 // ---------------------------------------------------------------------------
 
 model ItineraryItem {
-  id           String              @id @default(uuid()) @db.Uuid
-  bookingId    String              @map("booking_id") @db.Uuid
-  dayNumber    Int                 @map("day_number")
-  itemDate     DateTime?           @map("item_date") @db.Date
-  startTime    DateTime?           @map("start_time") @db.Time(6)
-  title        String
-  description  String?
-  locationName String?             @map("location_name")
-  lat          Float?
-  lng          Float?
-  vendorId     String?             @map("vendor_id") @db.Uuid
-  driverId     String?             @map("driver_id") @db.Uuid
-  status       ItineraryItemStatus @default(pending)
-  sortOrder    Int                 @default(0) @map("sort_order")
-  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String              @id @default(uuid()) @db.Uuid
+  bookingId     String              @map("booking_id") @db.Uuid
+  dayNumber     Int                 @map("day_number")
+  itemDate      DateTime?           @map("item_date") @db.Date
+  startTime     DateTime?           @map("start_time") @db.Time(6)
+  title         String
+  description   String?
+  locationName  String?             @map("location_name")
+  lat           Float?
+  lng           Float?
+  vendorId      String?             @map("vendor_id") @db.Uuid
+  driverId      String?             @map("driver_id") @db.Uuid
+  status        ItineraryItemStatus @default(pending)
+  sortOrder     Int                 @default(0) @map("sort_order")
+  carPlan       String?             @map("car_plan")
+  meetingPoint  String?             @map("meeting_point")
+  guideContact  String?             @map("guide_contact")
+  pdfUrl        String?             @map("pdf_url")
+  notes         String?
+  extras        Json                @default("{}")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   booking        Booking         @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   vendor         Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
@@ -412,6 +431,40 @@ model ItineraryItem {
   @@index([itemDate, status])
   @@index([driverId, itemDate])
   @@map("itinerary_items")
+}
+
+model BookingDayPlan {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  dayNumber Int      @map("day_number")
+  planDate  DateTime? @map("plan_date") @db.Date
+  carPlan   String?  @map("car_plan")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, dayNumber])
+  @@index([bookingId])
+  @@map("booking_day_plans")
+}
+
+model BookingStaffLink {
+  id        String           @id @default(uuid()) @db.Uuid
+  bookingId String           @map("booking_id") @db.Uuid
+  staffId   String           @map("staff_id") @db.Uuid
+  role      BookingStaffRole
+  createdBy String           @map("created_by") @db.Uuid
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  staff         StaffUser @relation("BookingStaffLinkStaff", fields: [staffId], references: [id], onDelete: Restrict)
+  createdByUser StaffUser @relation("BookingStaffLinkCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([bookingId, staffId, role])
+  @@index([staffId])
+  @@map("booking_staff_links")
 }
 
 model DriverAssignment {

@@ -235,6 +235,41 @@ export class AuthService {
     };
   }
 
+  /** Guest mobile entry: booking code (ZN####) is the client identity. */
+  async clientLoginByZnCode(znCode: string) {
+    const code = znCode.trim();
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        znCode: { equals: code, mode: 'insensitive' },
+        status: { in: ['active', 'completed'] },
+      },
+      include: { client: true },
+    });
+    if (!booking || booking.client.deletedAt) {
+      throw AppError.unauthorized('Invalid booking code');
+    }
+
+    const tokens = await this.issueTokens({
+      sub: booking.clientId,
+      type: 'client',
+    });
+
+    await this.audit.log({
+      actorType: 'client',
+      actorId: booking.clientId,
+      action: 'auth.client_zn_login',
+      entity: 'bookings',
+      entityId: booking.id,
+    });
+
+    return {
+      ...tokens,
+      bookingId: booking.id,
+      znCode: booking.znCode,
+      user: this.mapClient(booking.client),
+    };
+  }
+
   async forgotPassword(phone: string) {
     const normalizedPhone = phone.trim();
     const client = await this.prisma.client.findUnique({

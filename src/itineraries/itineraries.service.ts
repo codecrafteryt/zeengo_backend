@@ -83,6 +83,11 @@ export class ItinerariesService {
         driverId: dto.driverId ?? assignment?.driverId,
         status: dto.status,
         sortOrder: dto.sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
+        carPlan: dto.carPlan,
+        meetingPoint: dto.meetingPoint,
+        guideContact: dto.guideContact,
+        pdfUrl: dto.pdfUrl || undefined,
+        notes: dto.notes,
       },
     });
 
@@ -117,6 +122,11 @@ export class ItinerariesService {
         driverId: dto.driverId,
         status: dto.status,
         sortOrder: dto.sortOrder,
+        carPlan: dto.carPlan,
+        meetingPoint: dto.meetingPoint,
+        guideContact: dto.guideContact,
+        pdfUrl: dto.pdfUrl === '' ? null : dto.pdfUrl,
+        notes: dto.notes,
       },
     });
 

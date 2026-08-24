@@ -14,6 +14,11 @@ export const createItineraryItemSchema = z.object({
   driverId: z.string().uuid().optional(),
   status: z.nativeEnum(ItineraryItemStatus).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
+  carPlan: z.string().trim().max(500).optional(),
+  meetingPoint: z.string().trim().max(300).optional(),
+  guideContact: z.string().trim().max(120).optional(),
+  pdfUrl: z.string().url().optional().or(z.literal('')),
+  notes: z.string().trim().max(2000).optional(),
 });
 
 export const updateItineraryItemSchema = createItineraryItemSchema.partial();

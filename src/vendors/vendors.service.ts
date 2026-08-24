@@ -121,6 +121,8 @@ export class VendorsService {
       bus: 0,
       activity: 0,
       driver: 0,
+      service: 0,
+      b2b: 0,
     };
 
     for (const row of grouped) {
@@ -131,6 +133,8 @@ export class VendorsService {
       if (row.type === VendorType.bus) counts.bus = row._count._all;
       if (row.type === VendorType.activity) counts.activity = row._count._all;
       if (row.type === VendorType.driver) counts.driver = row._count._all;
+      if (row.type === VendorType.service) counts.service = row._count._all;
+      if (row.type === VendorType.b2b) counts.b2b = row._count._all;
     }
 
     return counts;

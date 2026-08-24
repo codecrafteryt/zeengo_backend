@@ -15,6 +15,11 @@ export type ItineraryItemDto = {
   driverId: string | null;
   status: ItineraryItemStatus;
   sortOrder: number;
+  carPlan: string | null;
+  meetingPoint: string | null;
+  guideContact: string | null;
+  pdfUrl: string | null;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -55,6 +60,11 @@ export function mapItineraryItem(row: ItineraryItem): ItineraryItemDto {
     driverId: row.driverId,
     status: row.status,
     sortOrder: row.sortOrder,
+    carPlan: row.carPlan,
+    meetingPoint: row.meetingPoint,
+    guideContact: row.guideContact,
+    pdfUrl: row.pdfUrl,
+    notes: row.notes,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

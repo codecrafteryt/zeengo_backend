@@ -61,6 +61,8 @@ export type VendorStatsDto = {
   bus: number;
   activity: number;
   driver: number;
+  service: number;
+  b2b: number;
 };
 
 export type VendorVoucherDto = {
