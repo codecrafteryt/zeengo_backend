@@ -1,8 +1,9 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RealtimeEmitter } from './realtime.emitter';
 import { RealtimeGateway } from './realtime.gateway';
+import { ChatModule } from '../chat/chat.module';
 
 @Global()
 @Module({
@@ -13,6 +14,7 @@ import { RealtimeGateway } from './realtime.gateway';
         secret: config.getOrThrow<string>('JWT_SECRET'),
       }),
     }),
+    forwardRef(() => ChatModule),
   ],
   providers: [RealtimeEmitter, RealtimeGateway],
   exports: [RealtimeEmitter],

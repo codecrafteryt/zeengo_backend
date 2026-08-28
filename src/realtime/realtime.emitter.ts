@@ -8,6 +8,8 @@ export type RealtimeEvent =
   | 'sos.resolved'
   | 'message.new'
   | 'message.translated'
+  | 'message.read'
+  | 'chat.typing'
   | 'notification.new'
   | 'booking.created'
   | 'driver.updated'

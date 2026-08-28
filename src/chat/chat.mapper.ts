@@ -1,4 +1,5 @@
 import {
+  Booking,
   Client,
   Conversation,
   ConversationParticipant,
@@ -14,6 +15,8 @@ export type ConversationDto = {
   createdAt: string;
   lastMessageAt: string | null;
   unreadCount: number;
+  znCode: string | null;
+  clientName: string | null;
 };
 
 export type MessageDto = {
@@ -32,7 +35,10 @@ export type MessageDto = {
 
 type ConversationRow = Conversation & {
   messages?: Message[];
-  participants?: ConversationParticipant[];
+  participants?: Array<
+    ConversationParticipant & { client?: Client | null; staff?: StaffUser | null }
+  >;
+  booking?: (Booking & { client?: Client | null }) | null;
 };
 
 type MessageRow = Message & {
@@ -46,14 +52,29 @@ export function mapConversation(
   lastMessageAt: string | null = null,
 ): ConversationDto {
   const lastMsg = row.messages?.[0];
+  const clientFromBooking = row.booking?.client;
+  const clientParticipant = row.participants?.find((p) => p.clientId)?.client;
+  const clientName =
+    clientFromBooking?.fullName ?? clientParticipant?.fullName ?? null;
+  const znCode = row.booking?.znCode ?? null;
+  const title =
+    row.title ??
+    (znCode && clientName
+      ? `${znCode} — ${clientName}`
+      : znCode
+        ? `${znCode} support`
+        : null);
+
   return {
     id: row.id,
     type: row.type,
     bookingId: row.bookingId,
-    title: row.title,
+    title,
     createdAt: row.createdAt.toISOString(),
     lastMessageAt: lastMessageAt ?? lastMsg?.createdAt.toISOString() ?? null,
     unreadCount,
+    znCode,
+    clientName,
   };
 }
 

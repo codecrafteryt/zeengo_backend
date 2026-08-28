@@ -7,5 +7,6 @@ import { JobsModule } from '../jobs/jobs.module';
   imports: [JobsModule],
   controllers: [ChatController],
   providers: [ChatService],
+  exports: [ChatService],
 })
 export class ChatModule {}

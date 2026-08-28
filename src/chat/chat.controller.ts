@@ -35,7 +35,13 @@ const CHAT_ROLES = [
   'client',
 ] as const;
 
-const FIELD_ROLES = [StaffRole.splizer, StaffRole.driver] as const;
+const STAFF_CHAT_ROLES = [
+  StaffRole.admin,
+  StaffRole.ops_manager,
+  StaffRole.support,
+  StaffRole.splizer,
+  StaffRole.driver,
+] as const;
 
 @ApiTags('chat')
 @Controller('chat')
@@ -55,6 +61,16 @@ export class ChatController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.chatService.createConversation(body, user);
+  }
+
+  /** Get or create booking support thread (Ops/Support/Driver ↔ Client). */
+  @Post('bookings/:bookingId/thread')
+  @Roles(...CHAT_ROLES)
+  bookingThread(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.chatService.getOrCreateBookingSupport(bookingId, user);
   }
 
   @Get('conversations/:id/messages')
@@ -88,7 +104,7 @@ export class ChatController {
   }
 
   @Get('client-threads')
-  @Roles(...FIELD_ROLES, StaffRole.admin, StaffRole.ops_manager, StaffRole.support)
+  @Roles(...STAFF_CHAT_ROLES)
   listClientThreads(@CurrentUser() user: AuthPrincipal) {
     return this.chatService.listClientThreads(user);
   }
