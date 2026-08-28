@@ -13,6 +13,7 @@ import {
   StaffUser,
 } from '@prisma/client';
 import { decimalToNumber } from '../common/decimal.util';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 
 export type ClientSummaryDto = {
   id: string;
@@ -132,16 +133,18 @@ function mapPackageSummary(pkg: Package): PackageSummaryDto {
 function mapActiveDriverAssignment(
   assignments: BookingWithRelations['driverAssignments'],
 ): DriverAssignmentDto | null {
-  const active = assignments?.find((a) => a.status === 'active');
-  if (!active) return null;
+  const open = assignments?.find((a) =>
+    OPEN_ASSIGNMENT_STATUSES.includes(a.status),
+  );
+  if (!open) return null;
 
   return {
-    id: active.id,
-    driverId: active.driverId,
-    driverName: active.driver?.user?.fullName ?? null,
-    startDate: active.startDate.toISOString().slice(0, 10),
-    endDate: active.endDate?.toISOString().slice(0, 10) ?? null,
-    status: active.status,
+    id: open.id,
+    driverId: open.driverId,
+    driverName: open.driver?.user?.fullName ?? null,
+    startDate: open.startDate.toISOString().slice(0, 10),
+    endDate: open.endDate?.toISOString().slice(0, 10) ?? null,
+    status: open.status,
   };
 }
 

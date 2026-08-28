@@ -25,6 +25,7 @@ import {
   type OpsBookingDetail,
   type OpsClientCard,
 } from './operations.mapper';
+import { openAssignmentWhere } from '../drivers/assignment.util';
 
 const OPS_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -69,8 +70,9 @@ export class OperationsService {
             take: 1,
           },
           driverAssignments: {
-            where: { status: AssignmentStatus.active },
+            where: openAssignmentWhere(),
             include: { driver: { include: { user: true } } },
+            orderBy: { createdAt: 'desc' },
             take: 1,
           },
         },
@@ -95,6 +97,7 @@ export class OperationsService {
         notConfirmedTitles: pending.slice(0, 5).map((p) => p.title),
         coordinatorName: row.staffLinks[0]?.staff.fullName ?? null,
         driverName: row.driverAssignments[0]?.driver.user.fullName ?? null,
+        assignmentStatus: row.driverAssignments[0]?.status ?? null,
         createdAt: row.createdAt.toISOString(),
       };
     });
@@ -119,8 +122,9 @@ export class OperationsService {
         editRequests: { orderBy: { createdAt: 'desc' }, take: 20 },
         payments: { orderBy: { createdAt: 'desc' }, take: 50 },
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           include: { driver: { include: { user: true } } },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -146,7 +150,8 @@ export class OperationsService {
     const paidAmount = booking.payments
       .filter((p) => p.status === PaymentStatus.paid)
       .reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
-    const driver = booking.driverAssignments[0]?.driver;
+    const driverAssignment = booking.driverAssignments[0];
+    const driver = driverAssignment?.driver;
 
     return {
       bookingId: booking.id,
@@ -168,6 +173,7 @@ export class OperationsService {
       staff: booking.staffLinks.map(mapStaffLink),
       driverName: driver?.user.fullName ?? null,
       driverPhone: driver?.user.phone ?? null,
+      assignmentStatus: driverAssignment?.status ?? null,
       checklist: booking.checklistItems.map((c) => ({
         id: c.id,
         title: c.title,

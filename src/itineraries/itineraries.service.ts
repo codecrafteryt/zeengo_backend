@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { AssignmentStatus, ItineraryItemStatus, StaffRole } from '@prisma/client';
+import { ItineraryItemStatus, StaffRole } from '@prisma/client';
+import { COMMITTED_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -64,7 +65,7 @@ export class ItinerariesService {
     const assignment = dto.driverId
       ? null
       : await this.prisma.driverAssignment.findFirst({
-          where: { bookingId, status: AssignmentStatus.active },
+          where: { bookingId, status: { in: COMMITTED_ASSIGNMENT_STATUSES } },
           select: { driverId: true },
         });
 

@@ -23,6 +23,7 @@ export type OpsClientCard = {
   notConfirmedTitles: string[];
   coordinatorName: string | null;
   driverName: string | null;
+  assignmentStatus: string | null;
   createdAt: string;
 };
 
@@ -82,6 +83,7 @@ export type OpsBookingDetail = {
   staff: OpsStaffLink[];
   driverName: string | null;
   driverPhone: string | null;
+  assignmentStatus: string | null;
   checklist: Array<{ id: string; title: string; isDone: boolean }>;
   editRequests: Array<{
     id: string;

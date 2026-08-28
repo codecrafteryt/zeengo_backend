@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AssignmentStatus, Prisma, StaffRole } from '@prisma/client';
+import { COMMITTED_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -99,7 +100,11 @@ export class ReviewsService {
       where: { id: dto.bookingId },
       include: {
         driverAssignments: {
-          where: { status: { in: [AssignmentStatus.active, AssignmentStatus.completed] } },
+          where: {
+            status: {
+              in: [...COMMITTED_ASSIGNMENT_STATUSES, AssignmentStatus.completed],
+            },
+          },
           orderBy: { createdAt: 'desc' },
         },
       },

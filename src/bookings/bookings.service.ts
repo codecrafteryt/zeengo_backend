@@ -32,12 +32,15 @@ import {
   mapChecklistItem,
   mapPayment,
 } from './bookings.mapper';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 
 const bookingInclude = {
   client: true,
   package: true,
   driverAssignments: {
-    where: { status: 'active' as const },
+    where: { status: { in: OPEN_ASSIGNMENT_STATUSES } },
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
     include: {
       driver: {
         include: { user: true },
@@ -175,7 +178,9 @@ export class BookingsService {
             : {
                 package: true,
                 driverAssignments: {
-                  where: { status: 'active' as const },
+                  where: { status: { in: OPEN_ASSIGNMENT_STATUSES } },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
                   include: {
                     driver: { include: { user: true } },
                   },

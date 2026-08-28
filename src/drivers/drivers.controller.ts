@@ -39,6 +39,8 @@ import { listReviewsQuerySchema } from '../reviews/reviews.schema';
 import type { ListReviewsQuery } from '../reviews/reviews.schema';
 import { DriversService } from './drivers.service';
 import { ReviewsService } from '../reviews/reviews.service';
+import { rejectAssignmentSchema } from './assignment.schema';
+import type { RejectAssignmentDto } from './assignment.schema';
 
 const OPS_ROLES = [StaffRole.admin, StaffRole.ops_manager] as const;
 const DRIVER_OPS_ROLES = [...OPS_ROLES, StaffRole.support] as const;
@@ -116,6 +118,43 @@ export class DriversController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.driversService.recordGps(user, body);
+  }
+
+  @Post('me/assignments/:id/accept')
+  @Roles(StaffRole.driver)
+  acceptMyAssignment(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.acceptMyAssignment(user, id);
+  }
+
+  @Post('me/assignments/:id/reject')
+  @Roles(StaffRole.driver)
+  rejectMyAssignment(
+    @Param('id') id: string,
+    @Body(zodPipe(rejectAssignmentSchema)) body: RejectAssignmentDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.rejectMyAssignment(user, id, body);
+  }
+
+  @Post('me/assignments/:id/start')
+  @Roles(StaffRole.driver)
+  startMyAssignment(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.startMyAssignment(user, id);
+  }
+
+  @Post('me/assignments/:id/complete')
+  @Roles(StaffRole.driver)
+  completeMyAssignment(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.driversService.completeMyAssignment(user, id);
   }
 
   @Post('assignments')

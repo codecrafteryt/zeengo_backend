@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -26,6 +27,12 @@ import {
   UpdateMyStatusDto,
   UpdateMyVehicleDto,
 } from './drivers.schema';
+import {
+  COMMITTED_ASSIGNMENT_STATUSES,
+  OPEN_ASSIGNMENT_STATUSES,
+  openAssignmentWhere,
+} from './assignment.util';
+import { RejectAssignmentDto } from './assignment.schema';
 import {
   mapAssignment,
   mapDriverDetail,
@@ -53,6 +60,7 @@ export class DriversService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly realtime: RealtimeEmitter,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(query: ListDriversQuery) {
@@ -89,7 +97,7 @@ export class DriversService {
         include: {
           user: true,
           driverAssignments: {
-            where: { status: AssignmentStatus.active },
+            where: openAssignmentWhere(),
             take: 1,
             orderBy: { startDate: 'desc' },
             include: { booking: { include: { client: true } } },
@@ -110,7 +118,7 @@ export class DriversService {
       include: {
         user: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           orderBy: { startDate: 'desc' },
           include: {
             booking: { include: { client: true } },
@@ -143,7 +151,7 @@ export class DriversService {
       include: {
         user: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           take: 1,
           include: { booking: { include: { client: true } } },
         },
@@ -165,7 +173,7 @@ export class DriversService {
       this.prisma.booking.count({
         where: {
           status: BookingStatus.active,
-          driverAssignments: { none: { status: AssignmentStatus.active } },
+          driverAssignments: { none: openAssignmentWhere() },
         },
       }),
     ]);
@@ -194,7 +202,7 @@ export class DriversService {
     const rows = await this.prisma.booking.findMany({
       where: {
         status: BookingStatus.active,
-        driverAssignments: { none: { status: AssignmentStatus.active } },
+        driverAssignments: { none: openAssignmentWhere() },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -220,8 +228,9 @@ export class DriversService {
       include: {
         user: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
-          orderBy: { startDate: 'desc' },
+          where: openAssignmentWhere(),
+          orderBy: { createdAt: 'desc' },
+          take: 5,
           include: { booking: { include: { client: true } } },
         },
       },
@@ -246,7 +255,7 @@ export class DriversService {
               driverAssignments: {
                 some: {
                   driverId,
-                  status: AssignmentStatus.active,
+                  status: { in: OPEN_ASSIGNMENT_STATUSES },
                   startDate: { lte: date },
                   OR: [{ endDate: null }, { endDate: { gte: date } }],
                 },
@@ -290,7 +299,14 @@ export class DriversService {
     const rows = await this.prisma.driverAssignment.findMany({
       where: {
         driverId,
-        status: { in: [AssignmentStatus.completed, AssignmentStatus.active] },
+        status: {
+          in: [
+            AssignmentStatus.completed,
+            AssignmentStatus.in_progress,
+            AssignmentStatus.accepted,
+            AssignmentStatus.active,
+          ],
+        },
       },
       orderBy: { startDate: 'desc' },
       include: {
@@ -303,7 +319,10 @@ export class DriversService {
 
   async createAssignment(dto: CreateAssignmentDto, assignedBy: string) {
     const [booking, driver] = await Promise.all([
-      this.prisma.booking.findUnique({ where: { id: dto.bookingId } }),
+      this.prisma.booking.findUnique({
+        where: { id: dto.bookingId },
+        include: { client: true },
+      }),
       this.prisma.driverProfile.findUnique({
         where: { id: dto.driverId },
         include: { user: true },
@@ -317,29 +336,63 @@ export class DriversService {
       throw AppError.notFound('DRIVER_NOT_FOUND', 'Driver not found');
     }
 
+    const openOnDriver = await this.prisma.driverAssignment.findFirst({
+      where: openAssignmentWhere({ driverId: dto.driverId }),
+    });
+    if (openOnDriver && openOnDriver.bookingId !== dto.bookingId) {
+      throw AppError.conflict(
+        'DRIVER_BUSY',
+        'Driver already has an open assignment',
+      );
+    }
+
+    const startDate = new Date(dto.startDate ?? this.formatDate(new Date()));
+
     try {
       const row = await this.prisma.$transaction(async (tx) => {
-        // One active assignment per booking — reassign replaces previous.
         await tx.driverAssignment.updateMany({
-          where: {
-            bookingId: dto.bookingId,
-            status: AssignmentStatus.active,
-          },
+          where: openAssignmentWhere({ bookingId: dto.bookingId }),
           data: { status: AssignmentStatus.cancelled },
         });
 
-        return tx.driverAssignment.create({
-          data: {
+        const existing = await tx.driverAssignment.findFirst({
+          where: {
             bookingId: dto.bookingId,
             driverId: dto.driverId,
-            startDate: new Date(dto.startDate ?? this.formatDate(new Date())),
-            endDate: dto.endDate ? new Date(dto.endDate) : undefined,
-            assignedBy,
-          },
-          include: {
-            booking: { include: { client: true } },
+            startDate,
           },
         });
+
+        const assignment = existing
+          ? await tx.driverAssignment.update({
+              where: { id: existing.id },
+              data: {
+                status: AssignmentStatus.pending,
+                assignedBy,
+                endDate: dto.endDate ? new Date(dto.endDate) : null,
+                acceptedAt: null,
+                rejectedAt: null,
+                rejectedReason: null,
+                startedAt: null,
+                completedAt: null,
+              },
+              include: { booking: { include: { client: true } } },
+            })
+          : await tx.driverAssignment.create({
+              data: {
+                bookingId: dto.bookingId,
+                driverId: dto.driverId,
+                startDate,
+                endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+                status: AssignmentStatus.pending,
+                assignedBy,
+              },
+              include: {
+                booking: { include: { client: true } },
+              },
+            });
+
+        return assignment;
       });
 
       await this.prisma.itineraryItem.updateMany({
@@ -348,7 +401,19 @@ export class DriversService {
       });
 
       const mapped = mapAssignment(row);
-      this.realtime.emit('driver.updated', { driverId: dto.driverId, bookingId: dto.bookingId });
+      await this.notifications.createAndFanout({
+        staffId: driver.userId,
+        type: 'assignment',
+        title: `New assignment: ${booking.znCode}`,
+        body: `${booking.client.fullName} — tap to accept or decline.`,
+        data: {
+          assignmentId: row.id,
+          bookingId: row.bookingId,
+          znCode: booking.znCode,
+          status: row.status,
+        },
+      });
+      this.emitAssignment('assignment.created', mapped);
       return mapped;
     } catch (err) {
       if (
@@ -364,20 +429,251 @@ export class DriversService {
     }
   }
 
+  async acceptMyAssignment(user: AuthPrincipal, assignmentId: string) {
+    const profile = await this.requireDriverProfile(user);
+    const existing = await this.requireMyAssignment(profile.id, assignmentId);
+
+    if (existing.status !== AssignmentStatus.pending) {
+      throw AppError.conflict(
+        'ASSIGNMENT_NOT_PENDING',
+        'Only pending assignments can be accepted',
+      );
+    }
+
+    const now = new Date();
+    const row = await this.prisma.$transaction(async (tx) => {
+      await tx.driverAssignment.updateMany({
+        where: openAssignmentWhere({
+          bookingId: existing.bookingId,
+          id: { not: assignmentId },
+        }),
+        data: { status: AssignmentStatus.cancelled },
+      });
+
+      const updated = await tx.driverAssignment.update({
+        where: { id: assignmentId },
+        data: { status: AssignmentStatus.accepted, acceptedAt: now },
+        include: { booking: { include: { client: true } } },
+      });
+
+      await tx.itineraryItem.updateMany({
+        where: { bookingId: existing.bookingId },
+        data: { driverId: profile.id },
+      });
+
+      return updated;
+    });
+
+    const mapped = mapAssignment(row);
+    await this.notifications.createAndFanout({
+      staffRoles: [StaffRole.admin, StaffRole.ops_manager, StaffRole.support],
+      type: 'assignment',
+      title: `Driver accepted ${row.booking.znCode}`,
+      body: `${profile.user.fullName} accepted the assignment.`,
+      data: { assignmentId: row.id, bookingId: row.bookingId, status: row.status },
+    });
+    await this.notifications.createAndFanout({
+      clientId: row.booking.clientId,
+      type: 'assignment',
+      title: 'Your driver confirmed',
+      body: `${profile.user.fullName} will be your driver.`,
+      data: {
+        assignmentId: row.id,
+        bookingId: row.bookingId,
+        status: row.status,
+      },
+    });
+    this.emitAssignment('assignment.accepted', mapped);
+    return mapped;
+  }
+
+  async rejectMyAssignment(
+    user: AuthPrincipal,
+    assignmentId: string,
+    dto: RejectAssignmentDto,
+  ) {
+    const profile = await this.requireDriverProfile(user);
+    const existing = await this.requireMyAssignment(profile.id, assignmentId);
+
+    if (existing.status !== AssignmentStatus.pending) {
+      throw AppError.conflict(
+        'ASSIGNMENT_NOT_PENDING',
+        'Only pending assignments can be rejected',
+      );
+    }
+
+    const now = new Date();
+    const row = await this.prisma.driverAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: AssignmentStatus.rejected,
+        rejectedAt: now,
+        rejectedReason: dto.reason,
+      },
+      include: { booking: { include: { client: true } } },
+    });
+
+    await this.prisma.itineraryItem.updateMany({
+      where: { bookingId: row.bookingId, driverId: profile.id },
+      data: { driverId: null },
+    });
+
+    const mapped = mapAssignment(row);
+    await this.notifications.createAndFanout({
+      staffId: row.assignedBy,
+      type: 'assignment',
+      title: `Driver declined ${row.booking.znCode}`,
+      body: dto.reason,
+      data: { assignmentId: row.id, bookingId: row.bookingId, status: row.status },
+    });
+    await this.notifications.createAndFanout({
+      staffRoles: [StaffRole.admin, StaffRole.ops_manager, StaffRole.support],
+      type: 'assignment',
+      title: `Assignment declined: ${row.booking.znCode}`,
+      body: `${profile.user.fullName}: ${dto.reason}`,
+      data: { assignmentId: row.id, bookingId: row.bookingId, status: row.status },
+    });
+    this.emitAssignment('assignment.rejected', mapped);
+    return mapped;
+  }
+
+  async startMyAssignment(user: AuthPrincipal, assignmentId: string) {
+    const profile = await this.requireDriverProfile(user);
+    const existing = await this.requireMyAssignment(profile.id, assignmentId);
+
+    if (
+      existing.status !== AssignmentStatus.accepted &&
+      existing.status !== AssignmentStatus.active
+    ) {
+      throw AppError.conflict(
+        'ASSIGNMENT_NOT_ACCEPTED',
+        'Accept the assignment before starting the trip',
+      );
+    }
+
+    const now = new Date();
+    const row = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.driverAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: AssignmentStatus.in_progress,
+          startedAt: now,
+        },
+        include: { booking: { include: { client: true } } },
+      });
+
+      await tx.driverProfile.update({
+        where: { id: profile.id },
+        data: { status: DriverStatus.en_route },
+      });
+
+      return updated;
+    });
+
+    const mapped = mapAssignment(row);
+    await this.notifications.createAndFanout({
+      staffRoles: [StaffRole.admin, StaffRole.ops_manager, StaffRole.support],
+      type: 'assignment',
+      title: `Trip started: ${row.booking.znCode}`,
+      body: `${profile.user.fullName} is en route.`,
+      data: { assignmentId: row.id, bookingId: row.bookingId, status: row.status },
+    });
+    await this.notifications.createAndFanout({
+      clientId: row.booking.clientId,
+      type: 'assignment',
+      title: 'Your driver is on the way',
+      body: `${profile.user.fullName} has started your trip.`,
+      data: {
+        assignmentId: row.id,
+        bookingId: row.bookingId,
+        status: row.status,
+      },
+    });
+    this.emitAssignment('assignment.started', mapped);
+    return mapped;
+  }
+
+  async completeMyAssignment(user: AuthPrincipal, assignmentId: string) {
+    const profile = await this.requireDriverProfile(user);
+    const existing = await this.requireMyAssignment(profile.id, assignmentId);
+
+    if (
+      existing.status !== AssignmentStatus.in_progress &&
+      existing.status !== AssignmentStatus.active
+    ) {
+      throw AppError.conflict(
+        'ASSIGNMENT_NOT_IN_PROGRESS',
+        'Start the trip before completing the assignment',
+      );
+    }
+
+    const now = new Date();
+    const row = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.driverAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: AssignmentStatus.completed,
+          completedAt: now,
+        },
+        include: { booking: { include: { client: true } } },
+      });
+
+      await tx.driverProfile.update({
+        where: { id: profile.id },
+        data: { status: DriverStatus.available },
+      });
+
+      return updated;
+    });
+
+    const mapped = mapAssignment(row);
+    await this.notifications.createAndFanout({
+      staffRoles: [StaffRole.admin, StaffRole.ops_manager, StaffRole.support],
+      type: 'assignment',
+      title: `Trip completed: ${row.booking.znCode}`,
+      body: `${profile.user.fullName} marked the assignment complete.`,
+      data: { assignmentId: row.id, bookingId: row.bookingId, status: row.status },
+    });
+    await this.notifications.createAndFanout({
+      clientId: row.booking.clientId,
+      type: 'assignment',
+      title: 'Trip completed',
+      body: `Your trip with ${profile.user.fullName} is complete.`,
+      data: {
+        assignmentId: row.id,
+        bookingId: row.bookingId,
+        status: row.status,
+      },
+    });
+    this.emitAssignment('assignment.completed', mapped);
+    return mapped;
+  }
+
   async deleteAssignment(id: string) {
     const existing = await this.prisma.driverAssignment.findUnique({
       where: { id },
+      include: { booking: { include: { client: true } } },
     });
     if (!existing) {
       throw AppError.notFound('ASSIGNMENT_NOT_FOUND', 'Assignment not found');
     }
 
-    await this.prisma.driverAssignment.update({
+    const row = await this.prisma.driverAssignment.update({
       where: { id },
       data: { status: AssignmentStatus.cancelled },
+      include: { booking: { include: { client: true } } },
     });
 
-    return { deleted: true };
+    if (existing.status !== AssignmentStatus.rejected) {
+      await this.prisma.itineraryItem.updateMany({
+        where: { bookingId: row.bookingId, driverId: row.driverId },
+        data: { driverId: null },
+      });
+    }
+
+    const mapped = mapAssignment(row);
+    this.emitAssignment('assignment.cancelled', mapped);
+    return { deleted: true, assignment: mapped };
   }
 
   async getMySchedule(user: AuthPrincipal, query: ScheduleQuery) {
@@ -402,7 +698,7 @@ export class DriversService {
         where: {
           bookingId: item.bookingId,
           driverId: profile.id,
-          status: AssignmentStatus.active,
+          status: { in: COMMITTED_ASSIGNMENT_STATUSES },
         },
       });
       if (!assigned) {
@@ -434,7 +730,7 @@ export class DriversService {
       include: {
         user: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           take: 1,
           include: { booking: { include: { client: true } } },
         },
@@ -452,7 +748,7 @@ export class DriversService {
       include: {
         user: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           take: 1,
           include: { booking: { include: { client: true } } },
         },
@@ -495,12 +791,20 @@ export class DriversService {
       }),
     ]);
 
-    return {
+    const result = {
       driverId: profile.id,
       lat: dto.lat,
       lng: dto.lng,
       recordedAt: payload.recordedAt,
     };
+
+    this.realtime.emit('driver.gps', {
+      ...result,
+      driverName: profile.user.fullName,
+      status: profile.status,
+    });
+
+    return result;
   }
 
   async getLivePositions() {
@@ -606,5 +910,25 @@ export class DriversService {
 
   private formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private async requireMyAssignment(driverId: string, assignmentId: string) {
+    const row = await this.prisma.driverAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { booking: { include: { client: true } } },
+    });
+    if (!row || row.driverId !== driverId) {
+      throw AppError.notFound('ASSIGNMENT_NOT_FOUND', 'Assignment not found');
+    }
+    return row;
+  }
+
+  private emitAssignment(event: string, payload: ReturnType<typeof mapAssignment>) {
+    this.realtime.emit(event, payload);
+    this.realtime.emit('driver.updated', {
+      driverId: payload.driverId,
+      bookingId: payload.bookingId,
+      assignmentStatus: payload.status,
+    });
   }
 }

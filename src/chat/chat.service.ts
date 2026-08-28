@@ -8,6 +8,7 @@ import {
   SenderType,
   StaffRole,
 } from '@prisma/client';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -176,7 +177,7 @@ export class ChatService {
       include: {
         client: true,
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: { status: { in: OPEN_ASSIGNMENT_STATUSES } },
           include: { driver: true },
           take: 1,
         },
@@ -347,7 +348,7 @@ export class ChatService {
       bookingIds = bookings.map((b) => b.id);
     } else if (user.role === StaffRole.driver) {
       const assignments = await this.prisma.driverAssignment.findMany({
-        where: { driver: { userId: user.sub }, status: AssignmentStatus.active },
+        where: { driver: { userId: user.sub }, status: { in: OPEN_ASSIGNMENT_STATUSES } },
         select: { bookingId: true },
       });
       bookingIds = assignments.map((a) => a.bookingId);
@@ -542,7 +543,7 @@ export class ChatService {
 
     if (user.role === StaffRole.driver) {
       const assignments = await this.prisma.driverAssignment.findMany({
-        where: { driver: { userId: user.sub }, status: AssignmentStatus.active },
+        where: { driver: { userId: user.sub }, status: { in: OPEN_ASSIGNMENT_STATUSES } },
         select: { bookingId: true },
       });
       const bookingIds = assignments.map((a) => a.bookingId);
@@ -623,7 +624,7 @@ export class ChatService {
       const assignment = await this.prisma.driverAssignment.findFirst({
         where: {
           bookingId: conv.bookingId,
-          status: AssignmentStatus.active,
+          status: { in: OPEN_ASSIGNMENT_STATUSES },
           driver: { userId: user.sub },
         },
         select: { id: true },
@@ -666,7 +667,7 @@ export class ChatService {
       const assignment = await this.prisma.driverAssignment.findFirst({
         where: {
           bookingId,
-          status: AssignmentStatus.active,
+          status: { in: OPEN_ASSIGNMENT_STATUSES },
           driver: { userId: user.sub },
         },
         select: { id: true },

@@ -28,6 +28,7 @@ import {
   VIP_SLA_MINUTES,
   VipOverviewDto,
 } from './vip.mapper';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 
 const VIP_READ_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -46,7 +47,8 @@ const vipBookingInclude = {
   client: true,
   package: true,
   driverAssignments: {
-    where: { status: 'active' },
+    where: { status: { in: OPEN_ASSIGNMENT_STATUSES } },
+    orderBy: { createdAt: 'desc' as const },
     include: { driver: { include: { user: true } } },
     take: 1,
   },

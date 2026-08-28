@@ -12,6 +12,7 @@ import {
   TaskPriority,
   TaskStatus,
 } from '@prisma/client';
+import { openAssignmentWhere } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { AppError } from '../common/errors/app-error';
@@ -386,11 +387,10 @@ export class DashboardService {
     return {
       status: BookingStatus.active,
       driverAssignments: {
-        none: {
-          status: AssignmentStatus.active,
+        none: openAssignmentWhere({
           startDate: { lte: asOf },
           OR: [{ endDate: null }, { endDate: { gte: asOf } }],
-        },
+        }),
       },
     };
   }
@@ -436,7 +436,7 @@ export class DashboardService {
         rating: true,
         user: { select: { fullName: true, phone: true } },
         driverAssignments: {
-          where: { status: AssignmentStatus.active },
+          where: openAssignmentWhere(),
           take: 1,
           orderBy: { startDate: 'desc' },
           select: { booking: { select: { znCode: true } } },

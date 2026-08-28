@@ -9,6 +9,7 @@ import {
   VendorBooking,
 } from '@prisma/client';
 import { decimalToNumber } from '../common/decimal.util';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 
 export type VipClientDto = {
   bookingId: string;
@@ -97,9 +98,11 @@ function resolveDriver(row: VipBookingRow): {
   isAssigned: boolean;
   driverName: string | null;
 } {
-  const active = row.driverAssignments?.find((a) => a.status === 'active');
-  const name = active?.driver?.user?.fullName ?? null;
-  return { isAssigned: Boolean(active), driverName: name };
+  const open = row.driverAssignments?.find((a) =>
+    OPEN_ASSIGNMENT_STATUSES.includes(a.status),
+  );
+  const name = open?.driver?.user?.fullName ?? null;
+  return { isAssigned: Boolean(open), driverName: name };
 }
 
 export function mapVipClient(row: VipBookingRow): VipClientDto {

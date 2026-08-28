@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { decimalToNumber } from '../common/decimal.util';
+import { CLIENT_VISIBLE_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 
 @Injectable()
 export class ClientPortalService {
@@ -17,7 +18,7 @@ export class ClientPortalService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const [todayItems, payments, assignment] = await Promise.all([
+    const [todayItems, payments, latestAssignment] = await Promise.all([
       this.prisma.itineraryItem.findMany({
         where: {
           bookingId: booking.id,
@@ -37,16 +38,26 @@ export class ClientPortalService {
         select: { amount: true, status: true },
       }),
       this.prisma.driverAssignment.findFirst({
-        where: { bookingId: booking.id, status: 'active' },
+        where: { bookingId: booking.id },
+        orderBy: { createdAt: 'desc' },
         include: { driver: { include: { user: true } } },
       }),
     ]);
+
+    const visibleAssignment =
+      latestAssignment &&
+      CLIENT_VISIBLE_ASSIGNMENT_STATUSES.includes(latestAssignment.status)
+        ? latestAssignment
+        : null;
 
     const paid = payments
       .filter((p) => p.status === PaymentStatus.paid)
       .reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
     const total = decimalToNumber(booking.totalAmount);
-    const driver = assignment?.driver ?? todayItems.find((i) => i.driver)?.driver ?? null;
+    const driver =
+      visibleAssignment?.driver ??
+      todayItems.find((i) => i.driver)?.driver ??
+      null;
 
     return {
       znCode: booking.znCode,
@@ -61,6 +72,15 @@ export class ClientPortalService {
         due: Math.max(0, Math.round((total - paid) * 100) / 100),
       },
       todayProgram: todayItems.map((item) => this.mapClientActivity(item, booking.znCode)),
+      assignment: latestAssignment
+        ? {
+            id: latestAssignment.id,
+            status: latestAssignment.status,
+            acceptedAt: latestAssignment.acceptedAt?.toISOString() ?? null,
+            startedAt: latestAssignment.startedAt?.toISOString() ?? null,
+            completedAt: latestAssignment.completedAt?.toISOString() ?? null,
+          }
+        : null,
       driver: driver
         ? {
             name: driver.user.fullName,

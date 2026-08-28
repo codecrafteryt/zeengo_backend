@@ -13,6 +13,13 @@ export type RealtimeEvent =
   | 'notification.new'
   | 'booking.created'
   | 'driver.updated'
+  | 'driver.gps'
+  | 'assignment.created'
+  | 'assignment.accepted'
+  | 'assignment.rejected'
+  | 'assignment.started'
+  | 'assignment.completed'
+  | 'assignment.cancelled'
   | 'task.updated'
   | 'edit_request.created'
   | 'edit_request.updated';

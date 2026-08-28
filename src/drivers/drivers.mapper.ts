@@ -6,6 +6,10 @@ import {
   ItineraryItem,
   StaffUser,
 } from '@prisma/client';
+import {
+  COMMITTED_ASSIGNMENT_STATUSES,
+  OPEN_ASSIGNMENT_STATUSES,
+} from './assignment.util';
 import { mapDriverProfile } from '../users/users.mapper';
 import { mapItineraryItem } from '../itineraries/itineraries.mapper';
 
@@ -25,6 +29,12 @@ export type DriverActiveAssignmentSummary = {
   clientPhone: string | null;
   startDate: string;
   endDate: string | null;
+  status: string;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  rejectedReason: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
 };
 
 export type DriverListItemDto = ReturnType<typeof mapDriverProfile> & {
@@ -63,6 +73,11 @@ export type DriverAssignmentDto = {
   endDate: string | null;
   status: string;
   assignedBy: string;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  rejectedReason: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
   createdAt: string;
 };
 
@@ -116,15 +131,22 @@ function mapActiveAssignmentSummary(
     clientPhone: row.booking.client.phone ?? null,
     startDate: row.startDate.toISOString().slice(0, 10),
     endDate: row.endDate?.toISOString().slice(0, 10) ?? null,
+    status: row.status,
+    acceptedAt: row.acceptedAt?.toISOString() ?? null,
+    rejectedAt: row.rejectedAt?.toISOString() ?? null,
+    rejectedReason: row.rejectedReason ?? null,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
   };
 }
 
 export function mapDriverListItem(row: DriverWithUser): DriverListItemDto {
-  const active = row.driverAssignments?.find((a) => a.status === 'active') ?? null;
+  const open =
+    row.driverAssignments?.find((a) => OPEN_ASSIGNMENT_STATUSES.includes(a.status)) ?? null;
   return {
     ...mapDriverProfile(row),
     user: mapDriverUser(row.user),
-    activeAssignment: mapActiveAssignmentSummary(active),
+    activeAssignment: mapActiveAssignmentSummary(open),
   };
 }
 
@@ -150,6 +172,11 @@ export function mapAssignment(row: AssignmentWithBooking): DriverAssignmentDto {
     endDate: row.endDate?.toISOString().slice(0, 10) ?? null,
     status: row.status,
     assignedBy: row.assignedBy,
+    acceptedAt: row.acceptedAt?.toISOString() ?? null,
+    rejectedAt: row.rejectedAt?.toISOString() ?? null,
+    rejectedReason: row.rejectedReason ?? null,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }

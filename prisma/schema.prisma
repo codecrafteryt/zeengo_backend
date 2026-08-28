@@ -63,6 +63,10 @@ enum ItineraryItemStatus {
 }
 
 enum AssignmentStatus {
+  pending
+  accepted
+  rejected
+  in_progress
   active
   completed
   cancelled
@@ -468,14 +472,19 @@ model BookingStaffLink {
 }
 
 model DriverAssignment {
-  id         String           @id @default(uuid()) @db.Uuid
-  bookingId  String           @map("booking_id") @db.Uuid
-  driverId   String           @map("driver_id") @db.Uuid
-  startDate  DateTime         @map("start_date") @db.Date
-  endDate    DateTime?        @map("end_date") @db.Date
-  status     AssignmentStatus @default(active)
-  assignedBy String           @map("assigned_by") @db.Uuid
-  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String           @id @default(uuid()) @db.Uuid
+  bookingId      String           @map("booking_id") @db.Uuid
+  driverId       String           @map("driver_id") @db.Uuid
+  startDate      DateTime         @map("start_date") @db.Date
+  endDate        DateTime?        @map("end_date") @db.Date
+  status         AssignmentStatus @default(pending)
+  assignedBy     String           @map("assigned_by") @db.Uuid
+  acceptedAt     DateTime?        @map("accepted_at") @db.Timestamptz(6)
+  rejectedAt     DateTime?        @map("rejected_at") @db.Timestamptz(6)
+  rejectedReason String?          @map("rejected_reason")
+  startedAt      DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
   booking        Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   driver         DriverProfile @relation(fields: [driverId], references: [id], onDelete: Restrict)
