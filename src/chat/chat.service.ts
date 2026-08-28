@@ -74,7 +74,11 @@ export class ChatService {
 
     const results = await Promise.all(
       participants.map(async (p) => {
-        const unread = await this.countUnread(p.conversationId, p.lastReadMessageId);
+        const unread = await this.countUnread(
+          p.conversationId,
+          p.lastReadMessageId,
+          user,
+        );
         const lastMsg = p.conversation.messages[0];
         return mapConversation(
           p.conversation,
@@ -232,7 +236,7 @@ export class ChatService {
       },
     });
     const unread = participant
-      ? await this.countUnread(conversation.id, participant.lastReadMessageId)
+      ? await this.countUnread(conversation.id, participant.lastReadMessageId, user)
       : 0;
 
     return mapConversation(
@@ -706,20 +710,38 @@ export class ChatService {
   private async countUnread(
     conversationId: string,
     lastReadMessageId: string | null,
+    user: AuthPrincipal,
   ): Promise<number> {
+    const notMine: Prisma.MessageWhereInput =
+      user.type === 'staff'
+        ? {
+            OR: [{ senderStaffId: null }, { senderStaffId: { not: user.sub } }],
+          }
+        : {
+            OR: [{ senderClientId: null }, { senderClientId: { not: user.sub } }],
+          };
+
+    const base: Prisma.MessageWhereInput = {
+      conversationId,
+      AND: [notMine],
+    };
+
     if (!lastReadMessageId) {
-      return this.prisma.message.count({ where: { conversationId } });
+      return this.prisma.message.count({ where: base });
     }
 
     const lastRead = await this.prisma.message.findUnique({
       where: { id: lastReadMessageId },
     });
     if (!lastRead) {
-      return this.prisma.message.count({ where: { conversationId } });
+      return this.prisma.message.count({ where: base });
     }
 
     return this.prisma.message.count({
-      where: { conversationId, createdAt: { gt: lastRead.createdAt } },
+      where: {
+        ...base,
+        createdAt: { gt: lastRead.createdAt },
+      },
     });
   }
 }
