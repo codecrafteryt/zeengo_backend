@@ -59,19 +59,32 @@ export class ClientPortalService {
       todayItems.find((i) => i.driver)?.driver ??
       null;
 
+    const arrivalDate = booking.arrivalDate?.toISOString().slice(0, 10) ?? null;
+    const departureDate =
+      booking.departureDate?.toISOString().slice(0, 10) ?? null;
+
+    // Single home payload for Flutter: guests, days left, due, today schedule, driver.
     return {
+      bookingId: booking.id,
       znCode: booking.znCode,
+      status: booking.status,
       clientName: booking.client.fullName,
       packageName: booking.package?.name ?? null,
-      arrivalDate: booking.arrivalDate?.toISOString().slice(0, 10) ?? null,
-      departureDate: booking.departureDate?.toISOString().slice(0, 10) ?? null,
+      packageId: booking.packageId,
+      partySize: booking.partySize,
+      guests: booking.partySize,
+      arrivalDate,
+      departureDate,
+      daysLeft: this.daysLeftFrom(booking.departureDate, today),
       isVip: booking.isVip,
       balance: {
         total,
         paid,
         due: Math.max(0, Math.round((total - paid) * 100) / 100),
       },
-      todayProgram: todayItems.map((item) => this.mapClientActivity(item, booking.znCode)),
+      todayProgram: todayItems.map((item) =>
+        this.mapClientActivity(item, booking.znCode),
+      ),
       assignment: latestAssignment
         ? {
             id: latestAssignment.id,
@@ -85,7 +98,9 @@ export class ClientPortalService {
         ? {
             name: driver.user.fullName,
             phone: driver.user.phone,
-            vehicle: [driver.vehicleMake, driver.vehicleModel].filter(Boolean).join(' '),
+            vehicle: [driver.vehicleMake, driver.vehicleModel]
+              .filter(Boolean)
+              .join(' '),
           }
         : null,
     };
@@ -189,6 +204,18 @@ export class ClientPortalService {
     const a = Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth(), arrival.getUTCDate());
     const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
     return Math.max(1, Math.floor((t - a) / 86400000) + 1);
+  }
+
+  /** Whole days from today (local midnight) until departure date; 0 if past/missing. */
+  private daysLeftFrom(departure: Date | null, today: Date): number {
+    if (!departure) return 0;
+    const d = Date.UTC(
+      departure.getUTCFullYear(),
+      departure.getUTCMonth(),
+      departure.getUTCDate(),
+    );
+    const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.max(0, Math.floor((d - t) / 86400000));
   }
 
   private async activeBookingForClient(clientId: string) {

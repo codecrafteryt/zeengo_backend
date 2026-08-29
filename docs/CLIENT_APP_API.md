@@ -256,6 +256,93 @@ Alias: `{ "znCode": "ZN0001" }`
 
 ---
 
+# 2. Home screen (single API — use this)
+
+## `GET /client/home`
+
+**Auth:** Bearer client JWT (`type: client`)  
+**Method:** `GET`  
+**Endpoint:** `/api/v1/client/home`  
+**Params:** none  
+**Query:** none  
+**Body / payload:** none  
+
+Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, due/paid/total, today schedule, driver, package, VIP.
+
+**Response `data`**
+
+```json
+{
+  "bookingId": "uuid",
+  "znCode": "ZN0001",
+  "status": "active",
+  "clientName": "Mohammed Al-Rashidi",
+  "packageName": "Family Package",
+  "packageId": "uuid",
+  "partySize": 5,
+  "guests": 5,
+  "arrivalDate": "2026-07-29",
+  "departureDate": "2026-08-14",
+  "daysLeft": 12,
+  "isVip": false,
+  "balance": {
+    "total": 6000,
+    "paid": 500,
+    "due": 5500
+  },
+  "todayProgram": [
+    {
+      "id": "uuid",
+      "dayNumber": 1,
+      "itemDate": "2026-07-29",
+      "startTime": "08:00:00",
+      "title": "Airport transfer",
+      "description": "Meet & greet",
+      "locationName": "SVO Terminal C",
+      "status": "pending",
+      "carPlan": null,
+      "meetingPoint": null,
+      "guideContact": null,
+      "pdfUrl": null,
+      "notes": null,
+      "vendorName": null,
+      "vendorType": null,
+      "qrPayload": "{\"znCode\":\"ZN0001\",\"activityId\":\"…\",\"title\":\"…\"}"
+    }
+  ],
+  "assignment": {
+    "id": "uuid",
+    "status": "active",
+    "acceptedAt": null,
+    "startedAt": null,
+    "completedAt": null
+  },
+  "driver": {
+    "name": "Alexei Sokolov",
+    "phone": "+7…",
+    "vehicle": "Mercedes E-Class"
+  }
+}
+```
+
+| Home UI | Field |
+|---|---|
+| Days left | `daysLeft` |
+| Guests | `guests` (same as `partySize`) |
+| Due | `balance.due` |
+| Paid / Total | `balance.paid` / `balance.total` |
+| Today schedule | `todayProgram` |
+| Driver card | `driver` (null if not assigned yet) |
+
+**Errors:** `403` if not client JWT · `404 BOOKING_NOT_FOUND` if no trip.
+
+**Related (optional, not needed for home cards):**
+
+- Full multi-day program → `GET /client/itinerary`
+- One activity detail → `GET /client/activities/:id`
+
+---
+
 ## `POST /auth/forgot-password`
 
 **Auth:** public (throttle 10/min)
@@ -966,6 +1053,9 @@ io("https://zeengobackend-production.up.railway.app/ws", {
 | POST | `/auth/change-password` | JWT |
 | GET | `/auth/me` | JWT |
 | PUT | `/auth/me/fcm-token` | JWT client-only |
+| GET | `/client/home` | JWT client — **home screen all-in-one** |
+| GET | `/client/itinerary` | JWT client |
+| GET | `/client/activities/:id` | JWT client |
 | GET | `/packages` | JWT |
 | GET | `/bookings` | JWT (own) |
 | GET | `/bookings/:id` | JWT (own) |
