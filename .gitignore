@@ -45,6 +45,10 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Firebase service account (never commit)
+*-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+
 # temp directory
 .temp
 .tmp
