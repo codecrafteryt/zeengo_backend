@@ -199,7 +199,11 @@ export class AuthService {
     throw AppError.validation('Unsupported OTP purpose');
   }
 
-  async clientLogin(bookingCode: string) {
+  async clientLogin(
+    bookingCode: string,
+    fcmToken?: string,
+    platform?: string,
+  ) {
     const code = bookingCode.trim();
     const booking = await this.prisma.booking.findFirst({
       where: { znCode: { equals: code, mode: 'insensitive' } },
@@ -208,6 +212,14 @@ export class AuthService {
 
     if (!booking || booking.client.deletedAt) {
       throw AppError.unauthorized('Invalid booking code');
+    }
+
+    if (fcmToken) {
+      await this.saveClientFcmToken(
+        booking.client.id,
+        fcmToken,
+        platform ?? 'android',
+      );
     }
 
     const tokens = await this.issueTokens({
@@ -457,6 +469,20 @@ export class AuthService {
       throw AppError.notFound('CLIENT_NOT_FOUND', 'Client not found');
     }
 
+    await this.saveClientFcmToken(client.id, token, platform);
+    return { message: 'FCM token saved' };
+  }
+
+  private async saveClientFcmToken(
+    clientId: string,
+    token: string,
+    platform: string,
+  ) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, deletedAt: null },
+    });
+    if (!client) return;
+
     const existing = (client.fcmTokens as FcmTokenEntry[]) ?? [];
     const entry: FcmTokenEntry = {
       token,
@@ -471,8 +497,6 @@ export class AuthService {
       where: { id: client.id },
       data: { fcmTokens: existing },
     });
-
-    return { message: 'FCM token saved' };
   }
 
   private async issueClientSession(clientId: string) {

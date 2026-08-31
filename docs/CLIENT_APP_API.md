@@ -227,15 +227,17 @@ Register karta hai (ya unverified phone update). OTP phone pe bhejta hai. Tokens
 
 Guest app login with the booking ZN code only — no phone, no password.
 
-**Body** (either field; `bookingCode` preferred)
+**Body** — `bookingCode` required (or alias `znCode`). `fcmToken` / `platform` optional.
 
 ```json
 {
-  "bookingCode": "ZN0001"
+  "bookingCode": "ZN0001",
+  "fcmToken": "optional-device-token",
+  "platform": "android"
 }
 ```
 
-Alias: `{ "znCode": "ZN0001" }`
+`platform` default `android` if `fcmToken` bheja ho. Allowed: `ios` | `android` | `web`. Token `clients.fcm_tokens` JSON pe save hota hai.
 
 **Response `data`**
 
