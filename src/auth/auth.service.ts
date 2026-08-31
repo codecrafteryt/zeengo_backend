@@ -453,6 +453,18 @@ export class AuthService {
     return { type: 'client' as const, user: this.mapClient(client) };
   }
 
+  async upsertFcmToken(
+    principal: AuthPrincipal,
+    token: string,
+    platform: string,
+  ) {
+    if (principal.type !== 'client') {
+      throw AppError.forbidden('FCM tokens are only supported for clients');
+    }
+    await this.saveClientFcmToken(principal.sub, token, platform);
+    return { message: 'FCM token saved' };
+  }
+
   private async saveClientFcmToken(
     clientId: string,
     token: string,

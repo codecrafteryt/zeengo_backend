@@ -61,6 +61,11 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const fcmTokenSchema = z.object({
+  token: z.string().min(1),
+  platform: z.enum(['ios', 'android', 'web']),
+});
+
 export type StaffLoginInput = z.infer<typeof staffLoginSchema>;
 export type ClientRegisterInput = z.infer<typeof clientRegisterSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
@@ -69,5 +74,6 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type FcmTokenInput = z.infer<typeof fcmTokenSchema>;
 
 export const staffRoleSchema = z.nativeEnum(StaffRole);

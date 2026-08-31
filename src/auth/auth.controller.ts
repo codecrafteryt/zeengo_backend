@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -7,6 +7,7 @@ import {
   clientLoginSchema,
   clientZnLoginSchema,
   clientRegisterSchema,
+  fcmTokenSchema,
   forgotPasswordSchema,
   refreshSchema,
   resetPasswordSchema,
@@ -117,5 +118,14 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthPrincipal) {
     return this.authService.me(user);
+  }
+
+  @Put('me/fcm-token')
+  upsertFcmToken(
+    @CurrentUser() user: AuthPrincipal,
+    @Body(new ZodValidationPipe(fcmTokenSchema)) body: unknown,
+  ) {
+    const input = body as ReturnType<typeof fcmTokenSchema.parse>;
+    return this.authService.upsertFcmToken(user, input.token, input.platform);
   }
 }
