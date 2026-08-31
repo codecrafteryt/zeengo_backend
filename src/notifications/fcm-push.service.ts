@@ -75,12 +75,16 @@ export class FcmPushService implements OnModuleInit {
       return { sent: 0, failed: 0 };
     }
 
-    const data = this.stringifyData({
-      ...(payload.data ?? {}),
-      notificationId: payload.notificationId,
-      clientId: payload.clientId,
-    });
-
+    const title = payload.title;
+    const body = payload.body || undefined;
+    const tag = payload.notificationId || payload.clientId;
+    /**
+     * Do not send a `data` payload together with `notification`.
+     * Android then shows our title AND wakes Flutter's background handler,
+     * which posts a second tray item titled "zeengo" / "Zeengo" (app name
+     * fallback because `message.notification` is null in that isolate).
+     * Deep-link fields remain on GET /notifications and socket `notification.new`.
+     */
     if (!this.ready) {
       this.logger.warn(
         `[fcm-stub] NOT sent to device. client=${payload.clientId} title="${payload.title}" tokens=${tokens.length}. Configure FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_PATH.`,
@@ -97,15 +101,14 @@ export class FcmPushService implements OnModuleInit {
         const batch = tokens.slice(i, i + FCM_MULTICAST_LIMIT);
         const response = await admin.messaging().sendEachForMulticast({
           tokens: batch,
-          notification: {
-            title: payload.title,
-            body: payload.body || undefined,
-          },
-          data,
+          notification: { title, body },
           android: {
             priority: 'high',
+            collapseKey: tag,
             notification: {
-              channelId: 'zeengo_default',
+              title,
+              body,
+              tag,
               sound: 'default',
             },
           },
@@ -113,9 +116,9 @@ export class FcmPushService implements OnModuleInit {
             headers: { 'apns-priority': '10' },
             payload: {
               aps: {
+                alert: { title, body },
                 sound: 'default',
                 badge: 1,
-                contentAvailable: true,
               },
             },
           },
@@ -217,14 +220,5 @@ export class FcmPushService implements OnModuleInit {
       clientEmail: String(raw.client_email ?? raw.clientEmail ?? ''),
       privateKey,
     };
-  }
-
-  private stringifyData(data: Record<string, unknown>): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (value === undefined || value === null) continue;
-      out[key] = typeof value === 'string' ? value : JSON.stringify(value);
-    }
-    return out;
   }
 }
