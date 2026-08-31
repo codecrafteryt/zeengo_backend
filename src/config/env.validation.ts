@@ -19,6 +19,7 @@ export const envSchema = z.object({
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
   SEED_STAFF_PASSWORD: z.string().optional(),
+  FCM_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

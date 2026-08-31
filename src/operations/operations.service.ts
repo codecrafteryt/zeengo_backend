@@ -26,6 +26,7 @@ import {
   type OpsClientCard,
 } from './operations.mapper';
 import { openAssignmentWhere } from '../drivers/assignment.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const OPS_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -35,7 +36,10 @@ const OPS_ROLES: StaffRole[] = [
 
 @Injectable()
 export class OperationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async listClients(query: ListOperationsQuery, user: AuthPrincipal) {
     this.assertOps(user);
@@ -198,7 +202,7 @@ export class OperationsService {
 
   async upsertDayPlan(bookingId: string, dto: UpsertDayPlanDto, user: AuthPrincipal) {
     this.assertOps(user);
-    await this.ensureBooking(bookingId);
+    const booking = await this.ensureBooking(bookingId);
 
     const row = await this.prisma.bookingDayPlan.upsert({
       where: {
@@ -215,6 +219,16 @@ export class OperationsService {
         planDate: dto.planDate ? new Date(dto.planDate) : undefined,
         carPlan: dto.carPlan,
         notes: dto.notes,
+      },
+    });
+
+    await this.notifications.notifyBookingClient(bookingId, {
+      type: 'program',
+      title: `Day ${dto.dayNumber} plan updated`,
+      body: `Ops updated your ${booking.znCode} day plan.`,
+      data: {
+        dayNumber: dto.dayNumber,
+        event: 'schedule.day_plan',
       },
     });
 
@@ -252,6 +266,21 @@ export class OperationsService {
               : null,
       },
       include: { vendor: true, booking: true },
+    });
+
+    const statusChanged = Boolean(dto.status && dto.status !== existing.status);
+    await this.notifications.notifyBookingClient(row.bookingId, {
+      type: 'program',
+      title: statusChanged
+        ? `Trip activity ${dto.status}: ${row.title}`
+        : `Schedule update: ${row.title}`,
+      body: `Your trip ${row.booking.znCode} was updated by operations.`,
+      data: {
+        itineraryItemId: row.id,
+        dayNumber: row.dayNumber,
+        status: row.status,
+        event: statusChanged ? 'schedule.item_status' : 'schedule.item_updated',
+      },
     });
 
     return mapOpsActivity(row, row.booking.znCode);

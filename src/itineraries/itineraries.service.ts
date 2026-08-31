@@ -4,6 +4,7 @@ import { COMMITTED_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateItineraryItemDto,
   DailyOperationsQuery,
@@ -25,7 +26,10 @@ const ITINERARY_WRITE_ROLES: StaffRole[] = [
 
 @Injectable()
 export class ItinerariesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async getByBookingId(bookingId: string, user: AuthPrincipal) {
     await this.ensureBookingReadable(bookingId, user);
@@ -92,6 +96,17 @@ export class ItinerariesService {
       },
     });
 
+    await this.notifications.notifyBookingClient(bookingId, {
+      type: 'program',
+      title: `New activity: ${row.title}`,
+      body: `Your trip ${booking.znCode} has a new schedule item.`,
+      data: {
+        itineraryItemId: row.id,
+        dayNumber: row.dayNumber,
+        event: 'schedule.item_added',
+      },
+    });
+
     return mapItineraryItem(row);
   }
 
@@ -101,7 +116,7 @@ export class ItinerariesService {
     user: AuthPrincipal,
   ) {
     this.assertStaffWrite(user);
-    await this.ensureItemExists(itemId);
+    const existing = await this.ensureItemExists(itemId);
 
     const row = await this.prisma.itineraryItem.update({
       where: { id: itemId },
@@ -128,6 +143,22 @@ export class ItinerariesService {
         guideContact: dto.guideContact,
         pdfUrl: dto.pdfUrl === '' ? null : dto.pdfUrl,
         notes: dto.notes,
+      },
+      include: { booking: true },
+    });
+
+    const statusChanged = dto.status && dto.status !== existing.status;
+    await this.notifications.notifyBookingClient(row.bookingId, {
+      type: 'program',
+      title: statusChanged
+        ? `Activity ${dto.status}: ${row.title}`
+        : `Schedule updated: ${row.title}`,
+      body: `Your trip ${row.booking.znCode} schedule was updated by ops.`,
+      data: {
+        itineraryItemId: row.id,
+        dayNumber: row.dayNumber,
+        status: row.status,
+        event: statusChanged ? 'schedule.item_status' : 'schedule.item_updated',
       },
     });
 
@@ -182,6 +213,16 @@ export class ItinerariesService {
       }
 
       return items;
+    });
+
+    await this.notifications.notifyBookingClient(bookingId, {
+      type: 'program',
+      title: `Trip schedule ready: ${booking.znCode}`,
+      body: `${created.length} activities were added to your itinerary.`,
+      data: {
+        itemCount: created.length,
+        event: 'schedule.imported',
+      },
     });
 
     return created.map(mapItineraryItem);

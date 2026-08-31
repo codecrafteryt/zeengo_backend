@@ -25,8 +25,6 @@ export const clientLoginSchema = z
   .object({
     bookingCode: z.string().min(2).max(32).optional(),
     znCode: z.string().min(2).max(32).optional(),
-    fcmToken: z.string().min(1).optional(),
-    platform: z.enum(['ios', 'android', 'web']).optional(),
   })
   .refine((value) => Boolean((value.bookingCode ?? value.znCode)?.trim()), {
     message: 'bookingCode is required',
@@ -34,8 +32,6 @@ export const clientLoginSchema = z
   })
   .transform((value) => ({
     bookingCode: (value.bookingCode ?? value.znCode ?? '').trim(),
-    fcmToken: value.fcmToken?.trim() || undefined,
-    platform: value.platform,
   }));
 
 export const clientZnLoginSchema = z.object({

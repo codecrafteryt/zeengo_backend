@@ -53,11 +53,7 @@ export class AuthController {
   @Post('client/login')
   clientLogin(@Body(new ZodValidationPipe(clientLoginSchema)) body: unknown) {
     const input = body as ReturnType<typeof clientLoginSchema.parse>;
-    return this.authService.clientLogin(
-      input.bookingCode,
-      input.fcmToken,
-      input.platform,
-    );
+    return this.authService.clientLogin(input.bookingCode);
   }
 
   @Public()

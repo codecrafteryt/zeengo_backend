@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { JobsService } from './jobs.service';
@@ -11,6 +11,7 @@ import {
   PushProcessor,
   TranslationProcessor,
 } from './jobs.processors';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 const QUEUE_NAMES = ['translation', 'push', 'ai', 'payments', 'digest', 'cleanup'] as const;
 
@@ -23,6 +24,7 @@ const QUEUE_NAMES = ['translation', 'push', 'ai', 'payments', 'digest', 'cleanup
       }),
     }),
     BullModule.registerQueue(...QUEUE_NAMES.map((name) => ({ name }))),
+    forwardRef(() => NotificationsModule),
   ],
   providers: [
     JobsService,

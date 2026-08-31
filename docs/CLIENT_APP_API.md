@@ -462,7 +462,7 @@ Naya `refreshToken` store kar lo. Purana client refresh JWT bhi 30d tak valid re
 
 **Auth:** Bearer — **client only** (staff `403`)
 
-Push token save. Same `platform` overwrite hota hai.
+Push token save. Same `platform` overwrite hota hai. Token `clients.fcm_tokens` JSON pe save hota hai.
 
 **Body**
 
@@ -478,6 +478,22 @@ Push token save. Same `platform` overwrite hota hai.
 ```json
 { "message": "FCM token saved" }
 ```
+
+### Push delivery (server → client app)
+
+Jab ops/admin schedule banata / update karta hai, ya driver trip start/complete karta hai:
+
+1. Backend `notifications` row create karta hai (`recipientType=client`)
+2. WebSocket `notification.new` → room `client:{clientId}`
+3. Agar client ne FCM token save kiya ho → Firebase push queue se device pe bhejta hai
+
+Client app ko:
+- Login / app start pe `PUT /auth/me/fcm-token` call karna chahiye
+- Inbox ke liye `GET /notifications` + badge `GET /notifications/unread-count`
+- Realtime ke liye `/ws` pe `notification.new` sunna chahiye
+- Push tap pe `data.znCode` / `data.bookingId` / `data.event` se deep-link
+
+`FCM_SERVICE_ACCOUNT_JSON` env pe Firebase service-account JSON hona chahiye (production). Bina iske inbox + WS phir bhi kaam karte hain; device push stub/log only.
 
 ---
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import {
   NotificationRecipientType,
   NotificationType,
@@ -9,9 +9,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { JobsService } from '../jobs/jobs.service';
 import { pageMeta, toSkipTake } from '../common/pagination/pagination';
 import { ListNotificationsQuery } from './notifications.schema';
-import { mapNotification } from './notifications.mapper';
+import { mapNotification, type NotificationDto } from './notifications.mapper';
 
 export type CreateNotificationInput = {
   recipientType?: NotificationRecipientType;
@@ -24,11 +25,20 @@ export type CreateNotificationInput = {
   data?: Record<string, unknown>;
 };
 
+type FcmTokenEntry = {
+  token?: string;
+  platform?: string;
+};
+
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEmitter,
+    @Inject(forwardRef(() => JobsService))
+    private readonly jobs: JobsService,
   ) {}
 
   async list(query: ListNotificationsQuery, user: AuthPrincipal) {
@@ -79,7 +89,32 @@ export class NotificationsService {
     return { updated: result.count };
   }
 
-  /** Insert notification(s) for staff/client recipients and emit realtime event. */
+  /**
+   * Notify the guest on a booking (inbox + WS + FCM push).
+   * Used when ops builds schedule / trip events for a znCode.
+   */
+  async notifyBookingClient(
+    bookingId: string,
+    input: Omit<CreateNotificationInput, 'clientId' | 'staffId' | 'staffRoles' | 'recipientType'>,
+  ): Promise<NotificationDto[]> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, clientId: true, znCode: true },
+    });
+    if (!booking) return [];
+
+    return this.createAndFanout({
+      ...input,
+      clientId: booking.clientId,
+      data: {
+        ...(input.data ?? {}),
+        bookingId: booking.id,
+        znCode: booking.znCode,
+      },
+    });
+  }
+
+  /** Insert notification(s), emit WS, and enqueue FCM for client recipients. */
   async createAndFanout(input: CreateNotificationInput) {
     const recipients = await this.resolveRecipients(input);
     if (recipients.length === 0) return [];
@@ -101,16 +136,54 @@ export class NotificationsService {
     );
 
     for (const row of rows) {
+      const mapped = mapNotification(row);
       const room =
         row.recipientType === 'staff' && row.staffId
           ? `user:${row.staffId}`
           : row.clientId
             ? `client:${row.clientId}`
             : undefined;
-      this.realtime.emit('notification.new', mapNotification(row), room ? [room] : undefined);
+      this.realtime.emit('notification.new', mapped, room ? [room] : undefined);
+
+      if (row.recipientType === NotificationRecipientType.client && row.clientId) {
+        void this.enqueueClientPush(row.clientId, mapped);
+      }
     }
 
     return rows.map(mapNotification);
+  }
+
+  private async enqueueClientPush(clientId: string, notification: NotificationDto) {
+    try {
+      const client = await this.prisma.client.findUnique({
+        where: { id: clientId },
+        select: { fcmTokens: true },
+      });
+      const entries = (client?.fcmTokens as FcmTokenEntry[] | null) ?? [];
+      const tokens = entries
+        .map((e) => (typeof e?.token === 'string' ? e.token.trim() : ''))
+        .filter(Boolean);
+
+      if (tokens.length === 0) {
+        this.logger.debug(`Skip FCM — no tokens for client ${clientId}`);
+        return;
+      }
+
+      await this.jobs.enqueuePush({
+        clientId,
+        title: notification.title,
+        body: notification.body ?? '',
+        data: {
+          ...(notification.data ?? {}),
+          type: notification.type,
+          notificationId: notification.id,
+        },
+        notificationId: notification.id,
+        tokens,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to enqueue FCM for client ${clientId}`, err);
+    }
   }
 
   private async resolveRecipients(

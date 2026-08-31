@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { mapMessage } from '../chat/chat.mapper';
 import type { TranslationJobData } from './jobs.service';
+import { FcmPushService } from '../notifications/fcm-push.service';
 
 @Processor('translation')
 export class TranslationProcessor extends WorkerHost {
@@ -43,12 +44,35 @@ export class TranslationProcessor extends WorkerHost {
   }
 }
 
+export type PushJobData = {
+  clientId: string;
+  title: string;
+  body?: string;
+  data?: Record<string, unknown>;
+  notificationId?: string;
+  tokens: string[];
+};
+
 @Processor('push')
 export class PushProcessor extends WorkerHost {
   private readonly logger = new Logger(PushProcessor.name);
 
-  async process(job: Job): Promise<void> {
-    this.logger.debug(`[push] job ${job.name}`, job.data);
+  constructor(private readonly fcm: FcmPushService) {
+    super();
+  }
+
+  async process(job: Job<PushJobData>): Promise<void> {
+    const { clientId, title, body, data, notificationId, tokens } = job.data;
+    this.logger.debug(`[push] client=${clientId} title="${title}" tokens=${tokens?.length ?? 0}`);
+    const result = await this.fcm.sendToTokens({
+      clientId,
+      title,
+      body,
+      data,
+      notificationId,
+      tokens: tokens ?? [],
+    });
+    this.logger.debug(`[push] done sent=${result.sent} failed=${result.failed}`);
   }
 }
 
