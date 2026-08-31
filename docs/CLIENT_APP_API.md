@@ -472,7 +472,7 @@ Client app ko:
 - Realtime ke liye `/ws` pe `notification.new` sunna chahiye
 - Push tap pe `data.znCode` / `data.bookingId` / `data.event` se deep-link
 
-`FCM_SERVICE_ACCOUNT_JSON` env pe Firebase service-account JSON hona chahiye (production). Bina iske inbox + WS phir bhi kaam karte hain; device push stub/log only.
+`FCM_SERVICE_ACCOUNT_JSON` (inline JSON **or** base64 JSON) **ya** `FCM_SERVICE_ACCOUNT_PATH` (local file path to Firebase Admin SDK JSON) set hona chahiye. Bina iske inbox + WS kaam karte hain, lekin device push **stub** rehta hai (`[fcm-stub]` logs).
 
 ---
 
