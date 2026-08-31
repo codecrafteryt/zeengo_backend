@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import {
+  FcmPushService,
+  type ClientPushPayload,
+} from '../notifications/fcm-push.service';
 
 export type TranslationJobData = {
   messageId: string;
@@ -19,6 +23,7 @@ export class JobsService {
     @InjectQueue('payments') private readonly paymentsQueue: Queue,
     @InjectQueue('digest') private readonly digestQueue: Queue,
     @InjectQueue('cleanup') private readonly cleanupQueue: Queue,
+    private readonly fcm: FcmPushService,
   ) {}
 
   async enqueueTranslation(messageId: string, body: string, sourceLang: string) {
@@ -43,8 +48,17 @@ export class JobsService {
     void body;
   }
 
-  async enqueuePush(payload: Record<string, unknown>) {
-    await this.pushQueue.add('push', payload, { removeOnComplete: true });
+  async enqueuePush(payload: ClientPushPayload) {
+    try {
+      await this.pushQueue.add('push', payload, {
+        removeOnComplete: true,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+      });
+    } catch (err) {
+      this.logger.warn('Push queue unavailable, sending FCM directly', err);
+      await this.fcm.sendToTokens(payload);
+    }
   }
 
   async enqueueAi(jobName: string, payload: Record<string, unknown>) {

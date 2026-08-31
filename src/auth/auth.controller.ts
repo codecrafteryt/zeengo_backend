@@ -65,7 +65,11 @@ export class AuthController {
   @Post('client/zn-login')
   clientZnLogin(@Body(new ZodValidationPipe(clientZnLoginSchema)) body: unknown) {
     const input = body as ReturnType<typeof clientZnLoginSchema.parse>;
-    return this.authService.clientLoginByZnCode(input.znCode);
+    return this.authService.clientLoginByZnCode(
+      input.znCode,
+      input.fcmToken,
+      input.platform,
+    );
   }
 
   @Public()

@@ -248,7 +248,11 @@ export class AuthService {
   }
 
   /** Guest mobile entry: booking code (ZN####) is the client identity. */
-  async clientLoginByZnCode(znCode: string) {
+  async clientLoginByZnCode(
+    znCode: string,
+    fcmToken?: string,
+    platform?: string,
+  ) {
     const code = znCode.trim();
     const booking = await this.prisma.booking.findFirst({
       where: {
@@ -259,6 +263,14 @@ export class AuthService {
     });
     if (!booking || booking.client.deletedAt) {
       throw AppError.unauthorized('Invalid booking code');
+    }
+
+    if (fcmToken) {
+      await this.saveClientFcmToken(
+        booking.client.id,
+        fcmToken,
+        platform ?? 'android',
+      );
     }
 
     const tokens = await this.issueTokens({
@@ -481,7 +493,9 @@ export class AuthService {
       platform,
       updatedAt: new Date().toISOString(),
     };
-    const index = existing.findIndex((item) => item.platform === platform);
+    const index = existing.findIndex(
+      (item) => item.token === token || item.platform === platform,
+    );
     if (index >= 0) existing[index] = entry;
     else existing.push(entry);
 

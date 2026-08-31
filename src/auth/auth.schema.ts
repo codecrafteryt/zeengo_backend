@@ -26,6 +26,7 @@ export const clientLoginSchema = z
     bookingCode: z.string().min(2).max(32).optional(),
     znCode: z.string().min(2).max(32).optional(),
     fcmToken: z.string().min(1).optional(),
+    deviceToken: z.string().min(1).optional(),
     platform: z.enum(['ios', 'android', 'web']).optional(),
   })
   .refine((value) => Boolean((value.bookingCode ?? value.znCode)?.trim()), {
@@ -34,13 +35,22 @@ export const clientLoginSchema = z
   })
   .transform((value) => ({
     bookingCode: (value.bookingCode ?? value.znCode ?? '').trim(),
-    fcmToken: value.fcmToken?.trim() || undefined,
+    fcmToken: (value.fcmToken ?? value.deviceToken)?.trim() || undefined,
     platform: value.platform,
   }));
 
-export const clientZnLoginSchema = z.object({
-  znCode: z.string().trim().min(2).max(32),
-});
+export const clientZnLoginSchema = z
+  .object({
+    znCode: z.string().trim().min(2).max(32),
+    fcmToken: z.string().min(1).optional(),
+    deviceToken: z.string().min(1).optional(),
+    platform: z.enum(['ios', 'android', 'web']).optional(),
+  })
+  .transform((value) => ({
+    znCode: value.znCode,
+    fcmToken: (value.fcmToken ?? value.deviceToken)?.trim() || undefined,
+    platform: value.platform,
+  }));
 
 export const forgotPasswordSchema = z.object({
   phone: z.string().min(6).max(32),

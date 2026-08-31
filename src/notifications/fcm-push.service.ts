@@ -2,6 +2,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
+import { PrismaService } from '../prisma/prisma.service';
+
+const DEAD_TOKEN_CODES = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/unregistered',
+]);
+
+const FCM_MULTICAST_LIMIT = 500;
 
 export type ClientPushPayload = {
   clientId: string;
@@ -12,19 +21,28 @@ export type ClientPushPayload = {
   tokens: string[];
 };
 
+type FcmTokenEntry = {
+  token?: string;
+  platform?: string;
+  updatedAt?: string;
+};
+
 @Injectable()
 export class FcmPushService implements OnModuleInit {
   private readonly logger = new Logger(FcmPushService.name);
   private ready = false;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   onModuleInit() {
     try {
       const credentials = this.loadCredentials();
       if (!credentials) {
         this.logger.warn(
-          'FCM credentials missing — set FCM_SERVICE_ACCOUNT_JSON (JSON string) or FCM_SERVICE_ACCOUNT_PATH (file). Push will stay stubbed until then.',
+          '[fcm-stub] FCM credentials missing — set FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_PATH. Device push stays stubbed until then.',
         );
         return;
       }
@@ -48,8 +66,10 @@ export class FcmPushService implements OnModuleInit {
     return this.ready;
   }
 
-  async sendToTokens(payload: ClientPushPayload): Promise<{ sent: number; failed: number }> {
-    const tokens = [...new Set(payload.tokens.filter(Boolean))];
+  async sendToTokens(
+    payload: ClientPushPayload,
+  ): Promise<{ sent: number; failed: number }> {
+    const tokens = [...new Set(payload.tokens.map((t) => t.trim()).filter(Boolean))];
     if (tokens.length === 0) {
       this.logger.warn(`No FCM tokens for client ${payload.clientId} — skip push`);
       return { sent: 0, failed: 0 };
@@ -68,53 +88,92 @@ export class FcmPushService implements OnModuleInit {
       return { sent: 0, failed: 0 };
     }
 
+    let sent = 0;
+    let failed = 0;
+    const dead: string[] = [];
+
     try {
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: {
-          title: payload.title,
-          body: payload.body || undefined,
-        },
-        data,
-        android: {
-          priority: 'high',
+      for (let i = 0; i < tokens.length; i += FCM_MULTICAST_LIMIT) {
+        const batch = tokens.slice(i, i + FCM_MULTICAST_LIMIT);
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: batch,
           notification: {
-            channelId: 'zeengo_default',
-            sound: 'default',
+            title: payload.title,
+            body: payload.body || undefined,
           },
-        },
-        apns: {
-          headers: {
-            'apns-priority': '10',
-          },
-          payload: {
-            aps: {
+          data,
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'zeengo_default',
               sound: 'default',
-              badge: 1,
-              contentAvailable: true,
             },
           },
-        },
-      });
+          apns: {
+            headers: { 'apns-priority': '10' },
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+                contentAvailable: true,
+              },
+            },
+          },
+        });
 
-      if (response.failureCount > 0) {
+        sent += response.successCount;
+        failed += response.failureCount;
+
         response.responses.forEach((res, index) => {
-          if (!res.success) {
-            this.logger.warn(
-              `FCM fail token[${index}] client=${payload.clientId}: ${res.error?.code ?? 'unknown'} ${res.error?.message ?? ''}`,
-            );
+          if (res.success) return;
+          const token = batch[index];
+          const code = res.error?.code ?? 'unknown';
+          this.logger.warn(
+            `FCM fail client=${payload.clientId} code=${code} ${res.error?.message ?? ''}`,
+          );
+          if (token && DEAD_TOKEN_CODES.has(code)) {
+            dead.push(token);
           }
         });
+      }
+
+      if (dead.length) {
+        await this.pruneDeadTokens(payload.clientId, dead);
       } else {
         this.logger.log(
-          `FCM sent client=${payload.clientId} title="${payload.title}" success=${response.successCount}`,
+          `FCM sent client=${payload.clientId} title="${payload.title}" success=${sent} failed=${failed}`,
         );
       }
 
-      return { sent: response.successCount, failed: response.failureCount };
+      return { sent, failed };
     } catch (err) {
       this.logger.error(`FCM send failed for client ${payload.clientId}`, err);
-      return { sent: 0, failed: tokens.length };
+      return { sent, failed: failed || tokens.length };
+    }
+  }
+
+  private async pruneDeadTokens(clientId: string, deadTokens: string[]) {
+    const dead = new Set(deadTokens);
+    try {
+      const client = await this.prisma.client.findUnique({
+        where: { id: clientId },
+        select: { fcmTokens: true },
+      });
+      if (!client) return;
+
+      const existing = (client.fcmTokens as FcmTokenEntry[] | null) ?? [];
+      const kept = existing.filter((entry) => !entry.token || !dead.has(entry.token));
+      if (kept.length === existing.length) return;
+
+      await this.prisma.client.update({
+        where: { id: clientId },
+        data: { fcmTokens: kept },
+      });
+      this.logger.log(
+        `Pruned ${existing.length - kept.length} dead FCM token(s) for client ${clientId}`,
+      );
+    } catch (err) {
+      this.logger.warn(`Failed to prune FCM tokens for client ${clientId}`, err);
     }
   }
 
@@ -128,19 +187,36 @@ export class FcmPushService implements OnModuleInit {
       if (!existsSync(filePath)) {
         throw new Error(`FCM service account file not found: ${filePath}`);
       }
-      return JSON.parse(readFileSync(filePath, 'utf8')) as admin.ServiceAccount;
+      return this.normalizeAccount(
+        JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>,
+      );
     }
 
     const raw = this.config.get<string>('FCM_SERVICE_ACCOUNT_JSON')?.trim() || '';
     if (!raw) return null;
 
-    // Support raw JSON, or base64-encoded JSON (common on Railway).
+    let parsed: Record<string, unknown>;
     try {
-      return JSON.parse(raw) as admin.ServiceAccount;
+      parsed = JSON.parse(raw) as Record<string, unknown>;
     } catch {
-      const decoded = Buffer.from(raw, 'base64').toString('utf8');
-      return JSON.parse(decoded) as admin.ServiceAccount;
+      parsed = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as Record<
+        string,
+        unknown
+      >;
     }
+    return this.normalizeAccount(parsed);
+  }
+
+  private normalizeAccount(raw: Record<string, unknown>): admin.ServiceAccount {
+    const privateKey = String(raw.private_key ?? raw.privateKey ?? '').replace(
+      /\\n/g,
+      '\n',
+    );
+    return {
+      projectId: String(raw.project_id ?? raw.projectId ?? ''),
+      clientEmail: String(raw.client_email ?? raw.clientEmail ?? ''),
+      privateKey,
+    };
   }
 
   private stringifyData(data: Record<string, unknown>): Record<string, string> {

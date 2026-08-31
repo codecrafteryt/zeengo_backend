@@ -27,6 +27,14 @@ export class SystemController {
       claude: {
         status: this.config.get('ANTHROPIC_API_KEY') ? 'configured' : 'missing_key',
       },
+      fcm: {
+        status:
+          this.config.get('FCM_SERVICE_ACCOUNT_JSON') ||
+          this.config.get('FCM_SERVICE_ACCOUNT_PATH') ||
+          this.config.get('GOOGLE_APPLICATION_CREDENTIALS')
+            ? 'configured'
+            : 'missing_key',
+      },
     };
 
     try {
