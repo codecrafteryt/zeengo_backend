@@ -202,7 +202,6 @@ Legend in each table:
 | POST | `/auth/refresh` | ❌ | Public | **Body:** `refreshToken` | New access + refresh pair |
 | POST | `/auth/logout` | ✅ | Any logged-in | **Body:** `refreshToken` | Revoke refresh |
 | GET | `/auth/me` | ✅ | Any logged-in | — | Current user profile |
-| PUT | `/auth/me/fcm-token` | ✅ | Any logged-in | **Body:** `token`, `platform` (`ios`\|`android`\|`web`) | Save push token |
 
 **Jr tip:** Staff use **email**. Clients use **phone + OTP**.
 
@@ -500,14 +499,14 @@ Common keys: `vip_price`, `stripe_link_expiry_hours`, `company_profile`.
 ---
 
 ## 19) Notifications — `src/notifications/`  
-**Count: 4** · any logged-in user (own inbox)
+**Count: 4** · list = any logged-in (own inbox); count/read = **staff only**
 
 | Method | Endpoint | JWT | Roles | Body / Query / Params | What it does |
 |---|---|---|---|---|---|
 | GET | `/notifications` | ✅ | any | **Query:** `filter?`=`all`\|`unread`, pagination | List |
-| GET | `/notifications/unread-count` | ✅ | any | — | Badge number |
-| POST | `/notifications/:id/read` | ✅ | any | **Params:** `id` | Mark one read |
-| POST | `/notifications/read-all` | ✅ | any | — | Mark all read |
+| GET | `/notifications/unread-count` | ✅ | staff | — | Badge number |
+| POST | `/notifications/:id/read` | ✅ | staff | **Params:** `id` | Mark one read |
+| POST | `/notifications/read-all` | ✅ | staff | — | Mark all read |
 
 ---
 

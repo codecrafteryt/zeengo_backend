@@ -109,7 +109,6 @@ Per domain file pattern:
 | `POST /auth/refresh` | 🟢 Both |
 | `POST /auth/logout` | 🟢 Both |
 | `GET /auth/me` | 🟢 Both |
-| `PUT /auth/me/fcm-token` | 🟢 Client / driver mainly |
 
 ---
 
@@ -266,7 +265,8 @@ Same folder; **row scoping** for client (own booking / own SOS / own requests).
 
 | Endpoint | Audience |
 |---|---|
-| `GET /notifications`, read / unread-count | 🟢 **Own** inbox (staff or client) |
+| `GET /notifications` | 🟢 **Own** inbox (staff or client) |
+| unread-count / mark-read | 🔵 Staff only |
 
 ---
 

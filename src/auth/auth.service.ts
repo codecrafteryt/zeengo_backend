@@ -453,26 +453,6 @@ export class AuthService {
     return { type: 'client' as const, user: this.mapClient(client) };
   }
 
-  async upsertFcmToken(
-    principal: AuthPrincipal,
-    token: string,
-    platform: string,
-  ) {
-    if (principal.type !== 'client') {
-      throw AppError.forbidden('FCM tokens are only supported for clients');
-    }
-
-    const client = await this.prisma.client.findFirst({
-      where: { id: principal.sub, deletedAt: null },
-    });
-    if (!client) {
-      throw AppError.notFound('CLIENT_NOT_FOUND', 'Client not found');
-    }
-
-    await this.saveClientFcmToken(client.id, token, platform);
-    return { message: 'FCM token saved' };
-  }
-
   private async saveClientFcmToken(
     clientId: string,
     token: string,

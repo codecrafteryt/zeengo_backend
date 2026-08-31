@@ -458,29 +458,6 @@ Naya `refreshToken` store kar lo. Purana client refresh JWT bhi 30d tak valid re
 
 ---
 
-## `PUT /auth/me/fcm-token`
-
-**Auth:** Bearer — **client only** (staff `403`)
-
-Push token save. Same `platform` overwrite hota hai.
-
-**Body**
-
-```json
-{
-  "token": "string",
-  "platform": "ios | android | web"
-}
-```
-
-**Response `data`**
-
-```json
-{ "message": "FCM token saved" }
-```
-
----
-
 # 2. Packages
 
 ## `GET /packages`
@@ -934,7 +911,7 @@ Realtime: `message.new` us conversation ke participant rooms pe.
 
 # 10. Notifications
 
-Controller pe `@Roles` nahi — **koi bhi authenticated user**. Client ko sirf `recipientType=client` + apna `clientId` milta hai.
+Controller pe list **koi bhi authenticated user** (client ko sirf apni rows). Unread-count / mark-read **staff-only** hain — client app unhe use nahi karti.
 
 ## `GET /notifications`
 
@@ -958,33 +935,7 @@ Controller pe `@Roles` nahi — **koi bhi authenticated user**. Client ko sirf `
 }
 ```
 
----
-
-## `GET /notifications/unread-count`
-
-**Response `data`**
-
-```json
-{ "count": 0 }
-```
-
----
-
-## `POST /notifications/read-all`
-
-**Response `data`**
-
-```json
-{ "updated": 3 }
-```
-
----
-
-## `POST /notifications/:id/read`
-
-Own notification only.
-
-**Response `data`:** `Notification` (`isRead: true`, `readAt` set)
+Client unread count locally `filter=unread` + `meta.total` se nikal sakta hai.
 
 ---
 
@@ -1054,7 +1005,6 @@ io("https://zeengobackend-production.up.railway.app/ws", {
 | POST | `/auth/logout` | JWT |
 | POST | `/auth/change-password` | JWT |
 | GET | `/auth/me` | JWT |
-| PUT | `/auth/me/fcm-token` | JWT client-only |
 | GET | `/client/home` | JWT client — **home screen all-in-one** |
 | GET | `/client/itinerary` | JWT client |
 | GET | `/client/activities/:id` | JWT client |
@@ -1078,12 +1028,9 @@ io("https://zeengobackend-production.up.railway.app/ws", {
 | POST | `/chat/conversations/:id/messages` | JWT |
 | POST | `/chat/conversations/:id/read` | JWT |
 | GET | `/notifications` | JWT |
-| GET | `/notifications/unread-count` | JWT |
-| POST | `/notifications/read-all` | JWT |
-| POST | `/notifications/:id/read` | JWT |
 | GET | `/system/health` | public |
 
-**Client-only writes (staff cannot):** FCM token, SOS create, edit-request create, VIP request, review create/list-mine.
+**Client-only writes (staff cannot):** SOS create, edit-request create, VIP request, review create/list-mine.
 
 **Typical client cannot:** create booking, pay cash/stripe-link, mutate itinerary, resolve SOS, dashboard, drivers ops, vendors, finance, users, settings.
 
