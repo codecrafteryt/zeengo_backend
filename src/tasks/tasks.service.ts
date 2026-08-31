@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, StaffRole, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -39,6 +40,7 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEmitter,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(query: ListTasksQuery, user: AuthPrincipal) {
@@ -124,6 +126,21 @@ export class TasksService {
 
     const created = mapTask(row);
     this.realtime.emit('task.updated', created);
+
+    if (row.bookingId && row.booking) {
+      await this.notifications.notifyBookingClient(row.bookingId, {
+        type: 'task',
+        title: `New update: ${row.title}`,
+        body: row.description ?? `Ops added a task for your trip ${row.booking.znCode}.`,
+        data: {
+          taskId: row.id,
+          priority: row.priority,
+          status: row.status,
+          event: 'task.created',
+        },
+      });
+    }
+
     return created;
   }
 

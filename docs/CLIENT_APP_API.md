@@ -312,6 +312,21 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
       "qrPayload": "{\"znCode\":\"ZN0001\",\"activityId\":\"…\",\"title\":\"…\"}"
     }
   ],
+  "tasks": [
+    {
+      "id": "uuid",
+      "title": "VIP escalate: ZN0006",
+      "description": "Guest needs airport fast-track in 45 minutes",
+      "priority": "urgent",
+      "status": "open",
+      "dueDate": "2026-08-07",
+      "completedAt": null,
+      "bookingId": "uuid",
+      "znCode": "ZN0006",
+      "createdAt": "ISO-8601",
+      "updatedAt": "ISO-8601"
+    }
+  ],
   "assignment": {
     "id": "uuid",
     "status": "active",
@@ -334,6 +349,7 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
 | Due | `balance.due` |
 | Paid / Total | `balance.paid` / `balance.total` |
 | Today schedule | `todayProgram` |
+| Open tasks for this ZN | `tasks` |
 | Driver card | `driver` (null if not assigned yet) |
 
 **Errors:** `403` if not client JWT · `404 BOOKING_NOT_FOUND` if no trip.
@@ -342,6 +358,55 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
 
 - Full multi-day program → `GET /client/itinerary`
 - One activity detail → `GET /client/activities/:id`
+- Full task list (open/done) → `GET /client/tasks`
+
+---
+
+## `GET /client/tasks`
+
+**Auth:** Bearer client JWT  
+**Endpoint:** `/api/v1/client/tasks`
+
+Guest ko **sirf unke active booking (znCode)** ke tasks milte hain — wohi jo admin/ops Tasks board pe booking se link karke banate hain.
+
+**Query**
+
+| Param | Values | Default |
+|---|---|---|
+| `page` / `limit` | pagination | `1` / `20` |
+| `filter` | `all` \| `open` \| `done` | `all` |
+| `status` | `open` \| `done` | optional (overrides filter) |
+
+**Response `data`**
+
+```json
+{
+  "znCode": "ZN0006",
+  "bookingId": "uuid",
+  "data": [
+    {
+      "id": "uuid",
+      "title": "VIP escalate: ZN0006",
+      "description": "Guest needs airport fast-track in 45 minutes",
+      "priority": "urgent",
+      "status": "open",
+      "dueDate": "2026-08-07",
+      "completedAt": null,
+      "bookingId": "uuid",
+      "znCode": "ZN0006",
+      "createdAt": "ISO-8601",
+      "updatedAt": "ISO-8601"
+    }
+  ],
+  "meta": { "total": 1, "page": 1, "limit": 20, "totalPages": 1 }
+}
+```
+
+## `GET /client/tasks/:id`
+
+**Auth:** Bearer client JWT — own booking task only.
+
+**Response `data`:** single task object (same shape as list item).
 
 ---
 
@@ -1025,6 +1090,8 @@ io("https://zeengobackend-production.up.railway.app/ws", {
 | GET | `/auth/me` | JWT |
 | GET | `/client/home` | JWT client — **home screen all-in-one** |
 | GET | `/client/itinerary` | JWT client |
+| GET | `/client/tasks` | JWT client — tasks for this znCode |
+| GET | `/client/tasks/:id` | JWT client |
 | GET | `/client/activities/:id` | JWT client |
 | GET | `/packages` | JWT |
 | GET | `/bookings` | JWT (own) |

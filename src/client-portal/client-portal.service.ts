@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { BookingStatus, PaymentStatus } from '@prisma/client';
+import { BookingStatus, PaymentStatus, Prisma, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { decimalToNumber } from '../common/decimal.util';
+import { pageMeta, toSkipTake } from '../common/pagination/pagination';
 import { CLIENT_VISIBLE_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
+import type { ListClientTasksQuery } from './client-portal.schema';
 
 @Injectable()
 export class ClientPortalService {
@@ -18,7 +20,7 @@ export class ClientPortalService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const [todayItems, payments, latestAssignment] = await Promise.all([
+    const [todayItems, payments, latestAssignment, openTasks] = await Promise.all([
       this.prisma.itineraryItem.findMany({
         where: {
           bookingId: booking.id,
@@ -42,6 +44,12 @@ export class ClientPortalService {
         orderBy: { createdAt: 'desc' },
         include: { driver: { include: { user: true } } },
       }),
+      this.prisma.task.findMany({
+        where: { bookingId: booking.id, status: TaskStatus.open },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        take: 20,
+        include: { booking: true },
+      }),
     ]);
 
     const visibleAssignment =
@@ -60,11 +68,17 @@ export class ClientPortalService {
       null;
 
     return {
+      bookingId: booking.id,
       znCode: booking.znCode,
+      status: booking.status,
       clientName: booking.client.fullName,
       packageName: booking.package?.name ?? null,
+      packageId: booking.packageId,
+      partySize: booking.partySize,
+      guests: booking.partySize,
       arrivalDate: booking.arrivalDate?.toISOString().slice(0, 10) ?? null,
       departureDate: booking.departureDate?.toISOString().slice(0, 10) ?? null,
+      daysLeft: this.daysLeft(booking.departureDate, today),
       isVip: booking.isVip,
       balance: {
         total,
@@ -72,6 +86,7 @@ export class ClientPortalService {
         due: Math.max(0, Math.round((total - paid) * 100) / 100),
       },
       todayProgram: todayItems.map((item) => this.mapClientActivity(item, booking.znCode)),
+      tasks: openTasks.map((t) => this.mapClientTask(t)),
       assignment: latestAssignment
         ? {
             id: latestAssignment.id,
@@ -91,6 +106,50 @@ export class ClientPortalService {
     };
   }
 
+  async listTasks(user: AuthPrincipal, query: ListClientTasksQuery) {
+    this.assertClient(user);
+    const booking = await this.activeBookingForClient(user.sub);
+    const { page, limit, skip, take } = toSkipTake(query);
+
+    const where: Prisma.TaskWhereInput = { bookingId: booking.id };
+
+    if (query.status) {
+      where.status = query.status;
+    } else if (query.filter === 'open') {
+      where.status = TaskStatus.open;
+    } else if (query.filter === 'done') {
+      where.status = TaskStatus.done;
+    }
+
+    const [rows, total] = await Promise.all([
+      this.prisma.task.findMany({
+        where,
+        orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+        skip,
+        take,
+        include: { booking: true },
+      }),
+      this.prisma.task.count({ where }),
+    ]);
+
+    return {
+      znCode: booking.znCode,
+      bookingId: booking.id,
+      data: rows.map((t) => this.mapClientTask(t)),
+      meta: pageMeta(total, page, limit),
+    };
+  }
+
+  async getTask(user: AuthPrincipal, taskId: string) {
+    this.assertClient(user);
+    const booking = await this.activeBookingForClient(user.sub);
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, bookingId: booking.id },
+      include: { booking: true },
+    });
+    if (!task) throw AppError.notFound('TASK_NOT_FOUND', 'Task not found');
+    return this.mapClientTask(task);
+  }
   async itinerary(user: AuthPrincipal) {
     this.assertClient(user);
     const booking = await this.activeBookingForClient(user.sub);
@@ -182,6 +241,45 @@ export class ClientPortalService {
         pdfUrl: item.pdfUrl,
       }),
     };
+  }
+
+  private mapClientTask(task: {
+    id: string;
+    title: string;
+    description: string | null;
+    priority: string;
+    status: string;
+    dueDate: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    bookingId: string | null;
+    booking?: { znCode: string } | null;
+  }) {
+    return {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate?.toISOString().slice(0, 10) ?? null,
+      completedAt: task.completedAt?.toISOString() ?? null,
+      bookingId: task.bookingId,
+      znCode: task.booking?.znCode ?? null,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+    };
+  }
+
+  private daysLeft(departure: Date | null, today: Date) {
+    if (!departure) return null;
+    const d = Date.UTC(
+      departure.getUTCFullYear(),
+      departure.getUTCMonth(),
+      departure.getUTCDate(),
+    );
+    const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    return Math.max(0, Math.floor((d - t) / 86400000));
   }
 
   private dayNumberFor(arrival: Date | null, today: Date) {
