@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+coverage
+test
+*.md
+dump.rdb
+.vscode
+.idea
+.prettierrc
+eslint.config.mjs
+zeengo-openapi.json
+docker-compose.yml

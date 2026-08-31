@@ -1,0 +1,83 @@
+import { Global, Inject, Injectable, Module, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Redis, { RedisOptions } from 'ioredis';
+
+export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
+
+export function redisConnection(urlString: string): RedisOptions {
+  const u = new URL(urlString);
+  return {
+    host: u.hostname,
+    port: Number(u.port || 6379),
+    username: u.username ? decodeURIComponent(u.username) : undefined,
+    password: u.password ? decodeURIComponent(u.password) : undefined,
+    family: 0,
+    maxRetriesPerRequest: null,
+    retryStrategy: (times) => Math.min(times * 200, 3000),
+  };
+}
+
+@Injectable()
+export class RedisService implements OnModuleDestroy {
+  constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
+
+  get raw(): Redis {
+    return this.client;
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key);
+  }
+
+  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    if (ttlSeconds) {
+      await this.client.set(key, value, 'EX', ttlSeconds);
+      return;
+    }
+    await this.client.set(key, value);
+  }
+
+  async del(...keys: string[]): Promise<void> {
+    if (keys.length) await this.client.del(...keys);
+  }
+
+  async getJson<T>(key: string): Promise<T | null> {
+    const raw = await this.get(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  }
+
+  async setJson(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+    await this.set(key, JSON.stringify(value), ttlSeconds);
+  }
+
+  onModuleDestroy() {
+    this.client.disconnect();
+  }
+}
+
+@Global()
+@Module({
+  providers: [
+    {
+      provide: REDIS_CLIENT,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const url = config.get<string>('REDIS_URL', 'redis://localhost:6379');
+        const client = new Redis(redisConnection(url));
+        let lastErrorLog = 0;
+        // Avoid ioredis "Unhandled error event" log spam while still reconnecting
+        client.on('error', (err) => {
+          const now = Date.now();
+          if (now - lastErrorLog < 5000) return;
+          lastErrorLog = now;
+          console.warn(`[redis] ${err.message}`);
+        });
+        return client;
+      },
+    },
+    RedisService,
+  ],
+  exports: [REDIS_CLIENT, RedisService],
+})
+export class RedisModule {}
