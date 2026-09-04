@@ -22,7 +22,12 @@ export type RealtimeEvent =
   | 'assignment.cancelled'
   | 'task.updated'
   | 'edit_request.created'
-  | 'edit_request.updated';
+  | 'edit_request.updated'
+  | 'vendor.created'
+  | 'vendor.updated'
+  | 'vendor.deleted'
+  | 'vendor.assigned'
+  | 'vendor.booking.updated';
 
 @Injectable()
 export class RealtimeEmitter {

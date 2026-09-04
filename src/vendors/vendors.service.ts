@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { AuditService } from '../common/audit.service';
+import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { decimalToNumber } from '../common/decimal.util';
 import {
   pageMeta,
@@ -58,6 +59,7 @@ export class VendorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeEmitter,
   ) {}
 
   async list(query: ListVendorsQuery, user: AuthPrincipal) {
@@ -205,7 +207,9 @@ export class VendorsService {
       entityId: row.id,
     });
 
-    return mapVendor(row);
+    const mapped = mapVendor(row);
+    this.realtime.emit('vendor.created', mapped);
+    return mapped;
   }
 
   async update(id: string, dto: UpdateVendorDto, user: AuthPrincipal) {
@@ -229,7 +233,17 @@ export class VendorsService {
       },
     });
 
-    return mapVendor(row);
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'vendor.update',
+      entity: 'vendor',
+      entityId: row.id,
+    });
+
+    const mapped = mapVendor(row);
+    this.realtime.emit('vendor.updated', mapped);
+    return mapped;
   }
 
   async remove(id: string, user: AuthPrincipal) {
@@ -241,7 +255,17 @@ export class VendorsService {
       data: { deletedAt: new Date(), isActive: false },
     });
 
-    return mapVendor(row);
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'vendor.delete',
+      entity: 'vendor',
+      entityId: row.id,
+    });
+
+    const mapped = mapVendor(row);
+    this.realtime.emit('vendor.deleted', mapped);
+    return mapped;
   }
 
   async assign(vendorId: string, dto: AssignVendorDto, user: AuthPrincipal) {
@@ -331,7 +355,9 @@ export class VendorsService {
       diff: { vendorId, bookingId: dto.bookingId },
     });
 
-    return mapVendorBooking(row);
+    const mapped = mapVendorBooking(row);
+    this.realtime.emit('vendor.assigned', mapped);
+    return mapped;
   }
 
   async updateBooking(
@@ -368,7 +394,9 @@ export class VendorsService {
       include: vendorBookingInclude,
     });
 
-    return mapVendorBooking(row);
+    const mapped = mapVendorBooking(row);
+    this.realtime.emit('vendor.booking.updated', mapped);
+    return mapped;
   }
 
   async generateVoucher(
@@ -423,6 +451,8 @@ export class VendorsService {
       entityId: row.id,
       diff: { voucherCode },
     });
+
+    this.realtime.emit('vendor.booking.updated', mapVendorBooking(updated));
 
     return {
       vendorBookingId: updated.id,
