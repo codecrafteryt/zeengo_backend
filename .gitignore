@@ -38,6 +38,9 @@ lerna-debug.log*
 # Local DB dump/restore artifacts (may contain prod backups)
 .db-sync/
 
+# Kitchen Excel export contains guest PII — never commit
+/prisma/data/kitchen-seed.json
+
 # dotenv environment variable files
 .env
 .env.development.local
