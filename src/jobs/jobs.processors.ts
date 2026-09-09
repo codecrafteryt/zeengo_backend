@@ -3,8 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
-import { mapMessage, resolveMessageChannel } from '../chat/chat.mapper';
-import { channelForStaffRole } from '../chat/chat.role';
+import { mapMessage } from '../chat/chat.mapper';
 import type { TranslationJobData } from './jobs.service';
 import { FcmPushService } from '../notifications/fcm-push.service';
 
@@ -35,24 +34,12 @@ export class TranslationProcessor extends WorkerHost {
       include: { senderStaff: true, senderClient: true },
     });
 
-    const channel = resolveMessageChannel(row);
     const participants = await this.prisma.conversationParticipant.findMany({
       where: { conversationId: row.conversationId },
-      include: { staff: { select: { id: true, role: true } } },
     });
-    const rooms = participants
-      .map((p) => {
-        if (p.participantType === 'client' && p.clientId) {
-          return `client:${p.clientId}`;
-        }
-        if (p.participantType === 'staff' && p.staff) {
-          if (!channel || channelForStaffRole(p.staff.role) === channel) {
-            return `user:${p.staff.id}`;
-          }
-        }
-        return null;
-      })
-      .filter((r): r is string => Boolean(r));
+    const rooms = participants.map((p) =>
+      p.participantType === 'staff' ? `user:${p.staffId}` : `client:${p.clientId}`,
+    );
     this.realtime.emit('message.translated', mapMessage(row), rooms);
   }
 }

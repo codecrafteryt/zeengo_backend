@@ -714,8 +714,6 @@ model Message {
   senderType      SenderType @map("sender_type")
   senderStaffId   String?    @map("sender_staff_id") @db.Uuid
   senderClientId  String?    @map("sender_client_id") @db.Uuid
-  /// Guest/staff channel: admin | driver | splizer (who should see this message).
-  targetRole      String?    @map("target_role")
   body            String
   bodyTranslated  Json       @default("{}") @map("body_translated")
   sourceLang      String?    @map("source_lang")
@@ -728,7 +726,6 @@ model Message {
   participantLastReadFor ConversationParticipant[] @relation("ParticipantLastReadMessage")
 
   @@index([conversationId, createdAt(sort: Desc)])
-  @@index([conversationId, targetRole])
   @@map("messages")
 }
 

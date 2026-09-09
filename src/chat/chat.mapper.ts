@@ -6,11 +6,6 @@ import {
   Message,
   StaffUser,
 } from '@prisma/client';
-import {
-  channelForStaffRole,
-  ClientChatRole,
-  isClientChatRole,
-} from './chat.role';
 
 export type ConversationDto = {
   id: string;
@@ -28,8 +23,8 @@ export type MessageDto = {
   id: string;
   conversationId: string;
   senderType: string;
-  /** Channel: admin | driver | splizer (staff ops roles map to admin). */
-  senderRole: ClientChatRole | null;
+  /** StaffRole when senderType is staff: admin | ops_manager | splizer | support | driver */
+  senderRole: string | null;
   senderStaffId: string | null;
   senderClientId: string | null;
   senderName: string | null;
@@ -85,18 +80,12 @@ export function mapConversation(
   };
 }
 
-export function resolveMessageChannel(row: MessageRow): ClientChatRole | null {
-  if (isClientChatRole(row.targetRole)) return row.targetRole;
-  if (row.senderStaff?.role) return channelForStaffRole(row.senderStaff.role);
-  return null;
-}
-
 export function mapMessage(row: MessageRow): MessageDto {
   return {
     id: row.id,
     conversationId: row.conversationId,
     senderType: row.senderType,
-    senderRole: resolveMessageChannel(row),
+    senderRole: row.senderStaff?.role ?? null,
     senderStaffId: row.senderStaffId,
     senderClientId: row.senderClientId,
     senderName: row.senderStaff?.fullName ?? row.senderClient?.fullName ?? null,
