@@ -16,6 +16,8 @@ export const listMessagesQuerySchema = z.object({
 export const createMessageSchema = z.object({
   body: z.string().trim().min(1).max(8000),
   attachments: z.array(z.record(z.string(), z.unknown())).optional(),
+  /** Required for clients: admin | driver | splizer (inbox channel). */
+  senderRole: z.enum(['admin', 'driver', 'splizer']).optional(),
 });
 
 export const markReadSchema = z.object({

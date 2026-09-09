@@ -1016,7 +1016,7 @@ Participants: guest + ops/support/admin (+ assigned driver if any).
   "id": "uuid",
   "conversationId": "uuid",
   "senderType": "staff | client | system",
-  "senderRole": "admin | ops_manager | splizer | support | driver | null",
+  "senderRole": "admin | driver | splizer | null",
   "senderStaffId": "uuid | null",
   "senderClientId": "uuid | null",
   "senderName": "string | null",
@@ -1028,7 +1028,8 @@ Participants: guest + ops/support/admin (+ assigned driver if any).
 }
 ```
 
-`senderRole` is set only when `senderType === "staff"` (from that staff user’s role). Use it to split Support / Driver / Splizer UI.
+`senderRole` is the chat channel (`admin` | `driver` | `splizer`).  
+Staff ops roles (`ops_manager`, `support`) map to `admin`. Staff list/unread/realtime only receive messages for their own channel.
 
 ---
 
@@ -1041,12 +1042,16 @@ Participants: guest + ops/support/admin (+ assigned driver if any).
 ```json
 {
   "body": "string (min 1)",
+  "senderRole": "admin | driver | splizer",
   "attachments": [{ "any": "json object" }]
 }
 ```
 
+`senderRole` is **required for clients** (Support → `admin`, Driver → `driver`, Splizer → `splizer`).  
+Staff may omit it (derived from their role) or set it explicitly.
+
 **Response `data`:** `Message`  
-Realtime: `message.new` us conversation ke participant rooms pe.
+Realtime: `message.new` only to the guest + staff on that same channel (not other roles).
 
 ---
 
