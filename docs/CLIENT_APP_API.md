@@ -895,12 +895,14 @@ Client `CHAT_ROLES` mein hai. Sirf un conversations ka access jin ka participant
 ```json
 {
   "id": "uuid",
-  "type": "team | dm | booking_support | client_direct",
+  "type": "booking_support",
   "bookingId": "uuid | null",
   "title": "string | null",
   "createdAt": "ISO-8601",
   "lastMessageAt": "ISO-8601 | null",
-  "unreadCount": 0
+  "unreadCount": 0,
+  "znCode": "ZN0001",
+  "clientName": "Guest Name"
 }
 ```
 
@@ -910,20 +912,34 @@ Client `CHAT_ROLES` mein hai. Sirf un conversations ka access jin ka participant
 
 **Auth:** Bearer client JWT
 
+**Client allowed types only:** `booking_support` | `client_direct`  
+**Client must send `bookingId`** (own booking). `team` / `dm` → 403.
+
+**Preferred for support chat:** `POST /chat/bookings/:bookingId/thread` (below).
+
 **Body**
 
 ```json
 {
-  "type": "booking_support | client_direct | dm | team",
-  "participantIds": ["uuid"],
-  "bookingId": "uuid (optional)",
+  "type": "booking_support",
+  "bookingId": "uuid",
   "title": "string (optional)"
 }
 ```
 
-Caller automatically participant ban jata hai.
+**Response `data`:** `Conversation`
 
-**Response `data`:** `Conversation` (`unreadCount` typically `0`, `lastMessageAt` null)
+---
+
+## `POST /chat/bookings/:bookingId/thread`
+
+**Auth:** Bearer client JWT — booking must belong to this client
+
+Get-or-create the single `booking_support` thread for that trip (idempotent).  
+Participants: guest + ops/support/admin (+ assigned driver if any).
+
+**Body:** none  
+**Response `data`:** `Conversation`
 
 ---
 
@@ -1052,26 +1068,39 @@ Client unread count locally `filter=unread` + `meta.total` se nikal sakta hai.
 |---|---|
 | Namespace | `/ws` |
 | Auth | `socket.handshake.auth.token` = **access JWT** |
-| Room | `client:{clientId}` |
+| Auto room | `client:{clientId}` |
+| Conversation room | emit `chat.join` / `chat.leave` |
 | Fail | token missing/invalid → disconnect |
 
-**Client-relevant events** (room-targeted):
+**Listen (server → client):**
 
 | Event | Payload | Kab |
 |---|---|---|
-| `notification.new` | `Notification` | Client ke liye naya notification |
-| `message.new` | `Message` | Chat message (participant room) |
-| `message.translated` | `Message` | Translation job complete |
+| `notification.new` | `Notification` | Inbox event |
+| `message.new` | `Message` | New chat message |
+| `message.translated` | `Message` | Translations ready |
+| `message.read` | `{ conversationId, lastMessageId, readerType, readerId }` | Read receipt |
+| `chat.typing` | `{ conversationId, userType, userId, role }` | Other party typing (needs `chat.join`) |
 
-Broadcast (no room) events jaise `booking.created` / `payment.recorded` **saari connected sockets** ko ja sakte hain — client app ko ignore karna chahiye unless payload uski booking ka ho.
+**Emit (client → server):**
 
-Connect example (socket.io-client):
+| Event | Body |
+|---|---|
+| `chat.join` | `{ "conversationId": "uuid" }` |
+| `chat.leave` | `{ "conversationId": "uuid" }` |
+| `chat.typing` | `{ "conversationId": "uuid" }` (throttle ~1s) |
+
+Broadcast ops events (`booking.created`, `payment.recorded`, …) ignore karo unless payload apni booking ka ho.
+
+Connect example:
 
 ```ts
 io("https://zeengobackend-production.up.railway.app/ws", {
   auth: { token: accessToken },
 });
 ```
+
+Full mobile prompt: `docs/MOBILE_CHAT_WEBSOCKET_PROMPT.md`
 
 ---
 
@@ -1108,7 +1137,8 @@ io("https://zeengobackend-production.up.railway.app/ws", {
 | GET | `/reviews/me` | JWT client-only |
 | POST | `/reviews` | JWT client-only |
 | GET | `/chat/conversations` | JWT |
-| POST | `/chat/conversations` | JWT |
+| POST | `/chat/conversations` | JWT client — booking_support / client_direct only |
+| POST | `/chat/bookings/:bookingId/thread` | JWT client — preferred support chat |
 | GET | `/chat/conversations/:id/messages` | JWT |
 | POST | `/chat/conversations/:id/messages` | JWT |
 | POST | `/chat/conversations/:id/read` | JWT |
