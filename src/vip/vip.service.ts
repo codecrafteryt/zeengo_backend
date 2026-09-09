@@ -366,6 +366,7 @@ export class VipService {
         conversationId: conversation.id,
         senderType: SenderType.staff,
         senderStaffId: user.sub,
+        targetRole: 'admin',
         body: `🚨 VIP ESCALATION\n${note}`,
       },
     });

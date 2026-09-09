@@ -164,22 +164,26 @@ Content-Type: application/json
 
 {
   "body": "Hello, when is my airport pickup?",
+  "senderRole": "admin",
   "attachments": []
 }
 ```
+
+`senderRole` required for clients: `admin` (Support) | `driver` | `splizer`.
 
 Optional attachments:
 
 ```json
 {
   "body": "Photo of my voucher",
+  "senderRole": "admin",
   "attachments": [
     { "url": "https://cdn.example.com/file.jpg", "mime": "image/jpeg" }
   ]
 }
 ```
 
-**Response `data`:** Message object. Server also emits realtime `message.new`.
+**Response `data`:** Message object. Server also emits realtime `message.new` to guest + matching-role staff only.
 
 ---
 
@@ -224,12 +228,13 @@ Content-Type: application/json
 }
 ```
 
-Staff example: `"senderType": "staff", "senderRole": "driver" | "admin" | "splizer" | "support" | "ops_manager"`.
+Staff example: `"senderType": "staff", "senderRole": "admin" | "driver" | "splizer"`.  
+Client send must include `senderRole` in POST body; response echoes it (channel the message belongs to).
 
 UI rules:
 
 - If `senderType === "client"` and `senderClientId === myClientId` → show as **my bubble**
-- If `senderType === "staff"` → show as inbound bubble; use `senderRole` for Support / Driver / Splizer tabs + label (`senderName`)
+- Split Support / Driver / Splizer by `senderRole` (`admin` → Support tab)
 - Prefer display language from `bodyTranslated[lang]` if present, else `body`
 - After send, `bodyTranslated` may be `{}` until `message.translated` arrives
 

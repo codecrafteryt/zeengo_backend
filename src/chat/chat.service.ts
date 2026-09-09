@@ -25,6 +25,11 @@ import {
   mapConversation,
   mapMessage,
 } from './chat.mapper';
+import {
+  channelForStaffRole,
+  ClientChatRole,
+  staffRolesForChannel,
+} from './chat.role';
 
 const CHAT_STAFF_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -254,7 +259,10 @@ export class ChatService {
   ) {
     await this.ensureParticipant(conversationId, user);
 
-    const where: Prisma.MessageWhereInput = { conversationId };
+    const where: Prisma.MessageWhereInput = {
+      conversationId,
+      ...this.messageVisibilityWhere(user),
+    };
     if (query.before) {
       const cursor = await this.prisma.message.findUnique({
         where: { id: query.before },
@@ -283,6 +291,7 @@ export class ChatService {
 
     const sourceLang = detectSourceLang(dto.body);
     const senderType = user.type === 'staff' ? SenderType.staff : SenderType.client;
+    const targetRole = this.resolveTargetRole(dto, user);
 
     const row = await this.prisma.message.create({
       data: {
@@ -290,6 +299,7 @@ export class ChatService {
         senderType,
         senderStaffId: user.type === 'staff' ? user.sub : null,
         senderClientId: user.type === 'client' ? user.sub : null,
+        targetRole,
         body: dto.body,
         sourceLang,
         attachments: (dto.attachments ?? []) as object,
@@ -298,8 +308,7 @@ export class ChatService {
     });
 
     const payload = mapMessage(row);
-    const rooms = await this.participantRooms(conversationId);
-    rooms.push(`conversation:${conversationId}`);
+    const rooms = await this.roomsForMessageChannel(conversationId, targetRole);
     this.realtime.emit('message.new', payload, rooms);
 
     void this.jobs.enqueueTranslation(row.id, dto.body, sourceLang);
@@ -676,6 +685,51 @@ export class ChatService {
     }
   }
 
+  private resolveTargetRole(
+    dto: CreateMessageDto,
+    user: AuthPrincipal,
+  ): ClientChatRole {
+    if (user.type === 'client') {
+      if (!dto.senderRole) {
+        throw AppError.validation('senderRole is required (admin | driver | splizer)');
+      }
+      return dto.senderRole;
+    }
+    if (dto.senderRole) return dto.senderRole;
+    if (!user.role) {
+      throw AppError.validation('Staff role missing');
+    }
+    return channelForStaffRole(user.role);
+  }
+
+  /** Staff only see their channel; clients see the full thread. */
+  private messageVisibilityWhere(user: AuthPrincipal): Prisma.MessageWhereInput {
+    if (user.type !== 'staff' || !user.role) return {};
+    const channel = channelForStaffRole(user.role);
+    const roles = staffRolesForChannel(channel);
+    return {
+      OR: [
+        { targetRole: channel },
+        {
+          AND: [
+            { targetRole: null },
+            {
+              OR: [
+                { senderStaff: { role: { in: roles } } },
+                ...(channel === 'admin'
+                  ? [
+                      { senderType: SenderType.client },
+                      { senderType: SenderType.system },
+                    ]
+                  : []),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
   private async assertBookingAccessTx(
     tx: Prisma.TransactionClient,
     bookingId: string,
@@ -708,6 +762,34 @@ export class ChatService {
       .filter((r): r is string => Boolean(r));
   }
 
+  /** Emit only to guest + staff on the same channel (not whole conversation room). */
+  private async roomsForMessageChannel(
+    conversationId: string,
+    channel: ClientChatRole | null,
+  ): Promise<string[]> {
+    const participants = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      include: { staff: { select: { id: true, role: true } } },
+    });
+
+    const rooms: string[] = [];
+    for (const p of participants) {
+      if (p.participantType === ParticipantType.client && p.clientId) {
+        rooms.push(`client:${p.clientId}`);
+        continue;
+      }
+      if (p.participantType === ParticipantType.staff && p.staff) {
+        if (
+          !channel ||
+          channelForStaffRole(p.staff.role) === channel
+        ) {
+          rooms.push(`user:${p.staff.id}`);
+        }
+      }
+    }
+    return rooms;
+  }
+
   private async countUnread(
     conversationId: string,
     lastReadMessageId: string | null,
@@ -724,7 +806,7 @@ export class ChatService {
 
     const base: Prisma.MessageWhereInput = {
       conversationId,
-      AND: [notMine],
+      AND: [notMine, this.messageVisibilityWhere(user)],
     };
 
     if (!lastReadMessageId) {
