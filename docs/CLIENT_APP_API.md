@@ -327,6 +327,35 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
       "updatedAt": "ISO-8601"
     }
   ],
+  "open": [
+    {
+      "id": "uuid",
+      "title": "tour to the misichilli garden in moscow",
+      "priority": "urgent",
+      "status": "open",
+      "dueDate": "2026-09-09",
+      "completedAt": null,
+      "bookingId": "uuid",
+      "znCode": "ZN0006",
+      "createdAt": "ISO-8601",
+      "updatedAt": "ISO-8601"
+    }
+  ],
+  "done": [
+    {
+      "id": "uuid",
+      "title": "Take the dinner at the moscow resturants",
+      "priority": "urgent",
+      "status": "done",
+      "dueDate": "2026-09-09",
+      "completedAt": "2026-09-09T10:00:00.000Z",
+      "bookingId": "uuid",
+      "znCode": "ZN0006",
+      "createdAt": "ISO-8601",
+      "updatedAt": "ISO-8601"
+    }
+  ],
+  "taskCounts": { "open": 4, "done": 1, "total": 5 },
   "assignment": {
     "id": "uuid",
     "status": "active",
@@ -349,7 +378,9 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
 | Due | `balance.due` |
 | Paid / Total | `balance.paid` / `balance.total` |
 | Today schedule | `todayProgram` |
-| Open tasks for this ZN | `tasks` |
+| Today's Schedule → **Open** tab | `open` (also mirrored in `tasks` for older builds) |
+| Today's Schedule → **Done** tab | `done` (admin Complete → appears here) |
+| Tab badges | `taskCounts.open` / `taskCounts.done` |
 | Driver card | `driver` (null if not assigned yet) |
 
 **Errors:** `403` if not client JWT · `404 BOOKING_NOT_FOUND` if no trip.
@@ -358,7 +389,7 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
 
 - Full multi-day program → `GET /client/itinerary`
 - One activity detail → `GET /client/activities/:id`
-- Full task list (open/done) → `GET /client/tasks`
+- Paginated / filter-only task lists → `GET /client/tasks`
 
 ---
 
@@ -369,28 +400,30 @@ Flutter home screen ke liye **sirf yahi ek call** kaafi hai: days left, guests, 
 
 Guest ko **sirf unke active booking (znCode)** ke tasks milte hain — wohi jo admin/ops Tasks board pe booking se link karke banate hain.
 
+Jab admin **Complete** dabaata hai → task `status: "done"` + `completedAt` set → guest **Done** list mein aata hai, **Open** se hat jata hai.
+
 **Query**
 
 | Param | Values | Default |
 |---|---|---|
-| `page` / `limit` | pagination | `1` / `20` |
+| `page` / `limit` | pagination (used when `filter=open` or `done`) | `1` / `20` |
 | `filter` | `all` \| `open` \| `done` | `all` |
 | `status` | `open` \| `done` | optional (overrides filter) |
 
-**Response `data`**
+**Response `data`** (default `filter=all` — best for Today's Schedule)
 
 ```json
 {
   "znCode": "ZN0006",
   "bookingId": "uuid",
-  "data": [
+  "open": [
     {
       "id": "uuid",
-      "title": "VIP escalate: ZN0006",
-      "description": "Guest needs airport fast-track in 45 minutes",
+      "title": "tour to the misichilli garden in moscow",
+      "description": "…",
       "priority": "urgent",
       "status": "open",
-      "dueDate": "2026-08-07",
+      "dueDate": "2026-09-09",
       "completedAt": null,
       "bookingId": "uuid",
       "znCode": "ZN0006",
@@ -398,9 +431,31 @@ Guest ko **sirf unke active booking (znCode)** ke tasks milte hain — wohi jo a
       "updatedAt": "ISO-8601"
     }
   ],
-  "meta": { "total": 1, "page": 1, "limit": 20, "totalPages": 1 }
+  "done": [
+    {
+      "id": "uuid",
+      "title": "Take the dinner at the moscow resturants",
+      "description": null,
+      "priority": "urgent",
+      "status": "done",
+      "dueDate": "2026-09-09",
+      "completedAt": "2026-09-09T10:00:00.000Z",
+      "bookingId": "uuid",
+      "znCode": "ZN0006",
+      "createdAt": "ISO-8601",
+      "updatedAt": "ISO-8601"
+    }
+  ],
+  "data": [],
+  "counts": { "open": 4, "done": 1, "total": 5 },
+  "meta": { "total": 5, "page": 1, "limit": 20, "totalPages": 1 }
 }
 ```
+
+- **Open tab** → render `open[]`
+- **Done tab** → render `done[]`
+- `data` = flat `open + done` (legacy)
+- `filter=open` → only `open` filled (paginated); `filter=done` → only `done` filled
 
 ## `GET /client/tasks/:id`
 

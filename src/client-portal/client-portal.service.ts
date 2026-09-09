@@ -20,37 +20,50 @@ export class ClientPortalService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const [todayItems, payments, latestAssignment, openTasks] = await Promise.all([
-      this.prisma.itineraryItem.findMany({
-        where: {
-          bookingId: booking.id,
-          OR: [
-            { itemDate: { gte: today, lt: tomorrow } },
-            {
-              itemDate: null,
-              dayNumber: this.dayNumberFor(booking.arrivalDate, today),
-            },
-          ],
-        },
-        orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }],
-        include: { vendor: true, driver: { include: { user: true } } },
-      }),
-      this.prisma.payment.findMany({
-        where: { bookingId: booking.id },
-        select: { amount: true, status: true },
-      }),
-      this.prisma.driverAssignment.findFirst({
-        where: { bookingId: booking.id },
-        orderBy: { createdAt: 'desc' },
-        include: { driver: { include: { user: true } } },
-      }),
-      this.prisma.task.findMany({
-        where: { bookingId: booking.id, status: TaskStatus.open },
-        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
-        take: 20,
-        include: { booking: true },
-      }),
-    ]);
+    const [todayItems, payments, latestAssignment, openTasks, doneTasks, openCount, doneCount] =
+      await Promise.all([
+        this.prisma.itineraryItem.findMany({
+          where: {
+            bookingId: booking.id,
+            OR: [
+              { itemDate: { gte: today, lt: tomorrow } },
+              {
+                itemDate: null,
+                dayNumber: this.dayNumberFor(booking.arrivalDate, today),
+              },
+            ],
+          },
+          orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }],
+          include: { vendor: true, driver: { include: { user: true } } },
+        }),
+        this.prisma.payment.findMany({
+          where: { bookingId: booking.id },
+          select: { amount: true, status: true },
+        }),
+        this.prisma.driverAssignment.findFirst({
+          where: { bookingId: booking.id },
+          orderBy: { createdAt: 'desc' },
+          include: { driver: { include: { user: true } } },
+        }),
+        this.prisma.task.findMany({
+          where: { bookingId: booking.id, status: TaskStatus.open },
+          orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+          take: 50,
+          include: { booking: true },
+        }),
+        this.prisma.task.findMany({
+          where: { bookingId: booking.id, status: TaskStatus.done },
+          orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
+          take: 50,
+          include: { booking: true },
+        }),
+        this.prisma.task.count({
+          where: { bookingId: booking.id, status: TaskStatus.open },
+        }),
+        this.prisma.task.count({
+          where: { bookingId: booking.id, status: TaskStatus.done },
+        }),
+      ]);
 
     const visibleAssignment =
       latestAssignment &&
@@ -86,7 +99,15 @@ export class ClientPortalService {
         due: Math.max(0, Math.round((total - paid) * 100) / 100),
       },
       todayProgram: todayItems.map((item) => this.mapClientActivity(item, booking.znCode)),
+      /** @deprecated Prefer `open` — kept for older app builds */
       tasks: openTasks.map((t) => this.mapClientTask(t)),
+      open: openTasks.map((t) => this.mapClientTask(t)),
+      done: doneTasks.map((t) => this.mapClientTask(t)),
+      taskCounts: {
+        open: openCount,
+        done: doneCount,
+        total: openCount + doneCount,
+      },
       assignment: latestAssignment
         ? {
             id: latestAssignment.id,
@@ -111,20 +132,71 @@ export class ClientPortalService {
     const booking = await this.activeBookingForClient(user.sub);
     const { page, limit, skip, take } = toSkipTake(query);
 
-    const where: Prisma.TaskWhereInput = { bookingId: booking.id };
+    const statusFilter = query.status
+      ? query.status
+      : query.filter === 'open'
+        ? TaskStatus.open
+        : query.filter === 'done'
+          ? TaskStatus.done
+          : null;
 
-    if (query.status) {
-      where.status = query.status;
-    } else if (query.filter === 'open') {
-      where.status = TaskStatus.open;
-    } else if (query.filter === 'done') {
-      where.status = TaskStatus.done;
+    const baseWhere: Prisma.TaskWhereInput = { bookingId: booking.id };
+
+    const [openCount, doneCount] = await Promise.all([
+      this.prisma.task.count({
+        where: { ...baseWhere, status: TaskStatus.open },
+      }),
+      this.prisma.task.count({
+        where: { ...baseWhere, status: TaskStatus.done },
+      }),
+    ]);
+
+    const counts = {
+      open: openCount,
+      done: doneCount,
+      total: openCount + doneCount,
+    };
+
+    // Today's Schedule: return both lists in one shot (default filter=all)
+    if (!statusFilter) {
+      const [openRows, doneRows] = await Promise.all([
+        this.prisma.task.findMany({
+          where: { ...baseWhere, status: TaskStatus.open },
+          orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+          take: Math.min(limit * 5, 100),
+          include: { booking: true },
+        }),
+        this.prisma.task.findMany({
+          where: { ...baseWhere, status: TaskStatus.done },
+          orderBy: [{ completedAt: 'desc' }, { updatedAt: 'desc' }],
+          take: Math.min(limit * 5, 100),
+          include: { booking: true },
+        }),
+      ]);
+
+      const open = openRows.map((t) => this.mapClientTask(t));
+      const done = doneRows.map((t) => this.mapClientTask(t));
+
+      return {
+        znCode: booking.znCode,
+        bookingId: booking.id,
+        open,
+        done,
+        /** Flat list (open then done) for older clients */
+        data: [...open, ...done],
+        counts,
+        meta: pageMeta(counts.total, page, limit),
+      };
     }
 
+    const where: Prisma.TaskWhereInput = { ...baseWhere, status: statusFilter };
     const [rows, total] = await Promise.all([
       this.prisma.task.findMany({
         where,
-        orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+        orderBy:
+          statusFilter === TaskStatus.done
+            ? [{ completedAt: 'desc' }, { updatedAt: 'desc' }]
+            : [{ dueDate: 'asc' }, { createdAt: 'desc' }],
         skip,
         take,
         include: { booking: true },
@@ -132,10 +204,17 @@ export class ClientPortalService {
       this.prisma.task.count({ where }),
     ]);
 
+    const mapped = rows.map((t) => this.mapClientTask(t));
+    const open = statusFilter === TaskStatus.open ? mapped : [];
+    const done = statusFilter === TaskStatus.done ? mapped : [];
+
     return {
       znCode: booking.znCode,
       bookingId: booking.id,
-      data: rows.map((t) => this.mapClientTask(t)),
+      open,
+      done,
+      data: mapped,
+      counts,
       meta: pageMeta(total, page, limit),
     };
   }
