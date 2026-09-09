@@ -465,6 +465,35 @@ Jab admin **Complete** dabaata hai → task `status: "done"` + `completedAt` set
 
 ---
 
+## `GET /client/suggestions`
+
+**Auth:** Bearer client JWT
+
+Booking notes that staff added for this client's active trip (admin “notes” → guest Suggestions).
+
+**Endpoint:** `/api/v1/client/suggestions`
+
+**Response `data`**
+
+```json
+{
+  "bookingId": "uuid",
+  "znCode": "ZN0006",
+  "data": [
+    {
+      "id": "uuid",
+      "body": "Try GUM café this evening",
+      "authorName": "Zeengo Admin",
+      "title": "Zeengo Admin",
+      "description": "Try GUM café this evening",
+      "createdAt": "2026-09-09T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
 ## `POST /auth/forgot-password`
 
 **Auth:** public (throttle 10/min)
@@ -1184,6 +1213,7 @@ Full mobile prompt: `docs/MOBILE_CHAT_WEBSOCKET_PROMPT.md`
 | GET | `/client/itinerary` | JWT client |
 | GET | `/client/tasks` | JWT client — tasks for this znCode |
 | GET | `/client/tasks/:id` | JWT client |
+| GET | `/client/suggestions` | JWT client — booking notes as suggestions |
 | GET | `/client/activities/:id` | JWT client |
 | GET | `/packages` | JWT |
 | GET | `/bookings` | JWT (own) |

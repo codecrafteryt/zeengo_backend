@@ -41,4 +41,9 @@ export class ClientPortalController {
   activity(@Param('id') id: string, @CurrentUser() user: AuthPrincipal) {
     return this.clientPortalService.activity(user, id);
   }
+
+  @Get('suggestions')
+  suggestions(@CurrentUser() user: AuthPrincipal) {
+    return this.clientPortalService.suggestions(user);
+  }
 }

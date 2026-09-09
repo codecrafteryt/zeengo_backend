@@ -278,6 +278,42 @@ export class ClientPortalService {
     return this.mapClientActivity(item, booking.znCode);
   }
 
+  /** Admin booking notes surfaced to the guest as suggestions. */
+  async suggestions(user: AuthPrincipal) {
+    this.assertClient(user);
+    const booking = await this.activeBookingForClient(user.sub);
+    const rows = await this.prisma.bookingNote.findMany({
+      where: { bookingId: booking.id },
+      orderBy: { createdAt: 'desc' },
+      include: { author: true },
+    });
+
+    return {
+      bookingId: booking.id,
+      znCode: booking.znCode,
+      data: rows.map((row) => this.mapClientSuggestion(row)),
+    };
+  }
+
+  private mapClientSuggestion(
+    row: {
+      id: string;
+      body: string;
+      createdAt: Date;
+      author?: { fullName: string } | null;
+    },
+  ) {
+    const authorName = row.author?.fullName?.trim() || null;
+    return {
+      id: row.id,
+      body: row.body,
+      authorName,
+      title: authorName ?? 'Suggestion',
+      description: row.body,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
   private mapClientActivity(
     item: {
       id: string;
