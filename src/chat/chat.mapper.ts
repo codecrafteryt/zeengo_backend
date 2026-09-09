@@ -23,6 +23,8 @@ export type MessageDto = {
   id: string;
   conversationId: string;
   senderType: string;
+  /** StaffRole when senderType is staff: admin | ops_manager | splizer | support | driver */
+  senderRole: string | null;
   senderStaffId: string | null;
   senderClientId: string | null;
   senderName: string | null;
@@ -83,6 +85,7 @@ export function mapMessage(row: MessageRow): MessageDto {
     id: row.id,
     conversationId: row.conversationId,
     senderType: row.senderType,
+    senderRole: row.senderStaff?.role ?? null,
     senderStaffId: row.senderStaffId,
     senderClientId: row.senderClientId,
     senderName: row.senderStaff?.fullName ?? row.senderClient?.fullName ?? null,

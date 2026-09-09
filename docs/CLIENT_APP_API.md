@@ -1016,6 +1016,7 @@ Participants: guest + ops/support/admin (+ assigned driver if any).
   "id": "uuid",
   "conversationId": "uuid",
   "senderType": "staff | client | system",
+  "senderRole": "admin | ops_manager | splizer | support | driver | null",
   "senderStaffId": "uuid | null",
   "senderClientId": "uuid | null",
   "senderName": "string | null",
@@ -1026,6 +1027,8 @@ Participants: guest + ops/support/admin (+ assigned driver if any).
   "createdAt": "ISO-8601"
 }
 ```
+
+`senderRole` is set only when `senderType === "staff"` (from that staff user’s role). Use it to split Support / Driver / Splizer UI.
 
 ---
 

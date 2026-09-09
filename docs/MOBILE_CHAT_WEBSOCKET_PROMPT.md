@@ -208,6 +208,7 @@ Content-Type: application/json
   "id": "uuid",
   "conversationId": "uuid",
   "senderType": "client",
+  "senderRole": null,
   "senderStaffId": null,
   "senderClientId": "uuid",
   "senderName": "Guest Name",
@@ -223,10 +224,12 @@ Content-Type: application/json
 }
 ```
 
+Staff example: `"senderType": "staff", "senderRole": "driver" | "admin" | "splizer" | "support" | "ops_manager"`.
+
 UI rules:
 
 - If `senderType === "client"` and `senderClientId === myClientId` → show as **my bubble**
-- If `senderType === "staff"` → show as **support / ops bubble** (use `senderName`)
+- If `senderType === "staff"` → show as inbound bubble; use `senderRole` for Support / Driver / Splizer tabs + label (`senderName`)
 - Prefer display language from `bodyTranslated[lang]` if present, else `body`
 - After send, `bodyTranslated` may be `{}` until `message.translated` arrives
 
