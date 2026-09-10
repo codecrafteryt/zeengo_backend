@@ -10,6 +10,7 @@ export const createSosSchema = z.object({
 
 export const listSosQuerySchema = paginationSchema.extend({
   status: z.nativeEnum(SosStatus).optional(),
+  bookingId: z.string().uuid().optional(),
 });
 
 export type CreateSosDto = z.infer<typeof createSosSchema>;

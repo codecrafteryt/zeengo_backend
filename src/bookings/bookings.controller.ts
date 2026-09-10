@@ -149,4 +149,13 @@ export class BookingsController {
   listPayments(@Param('id') id: string, @CurrentUser() user: AuthPrincipal) {
     return this.bookingsService.listPayments(id, user);
   }
+
+  @Get(':id/vendor-bookings')
+  @Roles(...BOOKING_WRITE_ROLES, StaffRole.splizer)
+  listVendorBookings(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.bookingsService.listVendorBookings(id, user);
+  }
 }

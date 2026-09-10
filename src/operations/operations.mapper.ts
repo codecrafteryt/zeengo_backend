@@ -65,13 +65,16 @@ export type OpsStaffLink = {
 
 export type OpsBookingDetail = {
   bookingId: string;
+  clientId: string;
   znCode: string;
   clientName: string;
   clientPhone: string;
   clientEmail: string | null;
   nationality: string | null;
+  packageId: string | null;
   packageName: string | null;
   status: BookingStatus;
+  isVip: boolean;
   arrivalDate: string | null;
   departureDate: string | null;
   partySize: number;
@@ -79,11 +82,17 @@ export type OpsBookingDetail = {
   paidAmount: number;
   dueAmount: number;
   internalNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
   days: OpsDay[];
   staff: OpsStaffLink[];
+  driverAssignmentId: string | null;
   driverName: string | null;
   driverPhone: string | null;
+  driverVehicle: string | null;
   assignmentStatus: string | null;
+  assignmentStartDate: string | null;
+  assignmentEndDate: string | null;
   checklist: Array<{ id: string; title: string; isDone: boolean }>;
   editRequests: Array<{
     id: string;
@@ -99,6 +108,45 @@ export type OpsBookingDetail = {
     status: string;
     createdAt: string;
   }>;
+  vendorBookings: Array<{
+    id: string;
+    vendorId: string;
+    vendorName: string;
+    vendorType: string;
+    vendorCity: string | null;
+    serviceDate: string | null;
+    pax: number | null;
+    details: string | null;
+    status: string;
+    amount: number | null;
+    voucherCode: string | null;
+  }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    priority: string;
+    status: string;
+    dueDate: string | null;
+    assigneeName: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  }>;
+  sosAlerts: Array<{
+    id: string;
+    status: string;
+    message: string | null;
+    createdAt: string;
+    resolvedAt: string | null;
+  }>;
+  counts: {
+    itineraryItems: number;
+    tasksOpen: number;
+    tasksDone: number;
+    vendors: number;
+    editRequestsPending: number;
+    sosActive: number;
+  };
 };
 
 function formatTime(value: Date | null): string | null {

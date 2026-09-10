@@ -15,12 +15,11 @@ import type {
 } from './clients.schema';
 import { ClientsService } from './clients.service';
 
-const STAFF_ROLES = [
+const CLIENT_READ_ROLES = [
   StaffRole.admin,
   StaffRole.ops_manager,
   StaffRole.support,
   StaffRole.splizer,
-  StaffRole.driver,
 ] as const;
 
 const WRITE_ROLES = [
@@ -35,7 +34,7 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
-  @Roles(...STAFF_ROLES)
+  @Roles(...CLIENT_READ_ROLES)
   list(@Query(zodPipe(listClientsQuerySchema)) query: ListClientsQuery) {
     return this.clientsService.list(query);
   }
@@ -47,7 +46,7 @@ export class ClientsController {
   }
 
   @Get(':id')
-  @Roles(...STAFF_ROLES)
+  @Roles(...CLIENT_READ_ROLES)
   getById(@Param('id') id: string) {
     return this.clientsService.getById(id);
   }

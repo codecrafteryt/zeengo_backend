@@ -610,6 +610,7 @@ model SosAlert {
   resolvedByUser   StaffUser? @relation("SosAlertResolvedBy", fields: [resolvedBy], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt(sort: Desc)])
+  @@index([bookingId])
   @@map("sos_alerts")
 }
 
@@ -634,6 +635,7 @@ model Task {
   @@index([status, priority])
   @@index([assigneeId])
   @@index([dueDate])
+  @@index([bookingId])
   @@map("tasks")
 }
 

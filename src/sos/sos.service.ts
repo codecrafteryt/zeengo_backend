@@ -12,6 +12,7 @@ import { AuditService } from '../common/audit.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { NotificationsService } from '../notifications/notifications.service';
 import { pageMeta, parseSort, toSkipTake } from '../common/pagination/pagination';
+import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { CreateSosDto, ListSosQuery } from './sos.schema';
 import { mapSosAlert } from './sos.mapper';
 
@@ -100,6 +101,23 @@ export class SosService {
 
     const where: Prisma.SosAlertWhereInput = {};
     if (query.status) where.status = query.status;
+    if (query.bookingId) where.bookingId = query.bookingId;
+
+    if (user.role === StaffRole.driver) {
+      const assignments = await this.prisma.driverAssignment.findMany({
+        where: {
+          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          driver: { userId: user.sub },
+        },
+        select: { bookingId: true },
+      });
+      const bookingIds = assignments.map((a) => a.bookingId);
+      where.bookingId = query.bookingId
+        ? bookingIds.includes(query.bookingId)
+          ? query.bookingId
+          : '__none__'
+        : { in: bookingIds.length ? bookingIds : ['__none__'] };
+    }
 
     const orderBy = parseSort(query.sort, ['createdAt', 'status'], {
       field: 'createdAt',
@@ -131,6 +149,17 @@ export class SosService {
       }
     } else {
       this.assertStaffRead(user);
+      if (user.role === StaffRole.driver) {
+        const assignment = await this.prisma.driverAssignment.findFirst({
+          where: {
+            bookingId: row.bookingId,
+            status: { in: OPEN_ASSIGNMENT_STATUSES },
+            driver: { userId: user.sub },
+          },
+          select: { id: true },
+        });
+        if (!assignment) throw AppError.forbidden();
+      }
     }
     return mapSosAlert(row);
   }

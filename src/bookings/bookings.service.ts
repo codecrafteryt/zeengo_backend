@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -33,6 +34,7 @@ import {
   mapPayment,
 } from './bookings.mapper';
 import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
+import { assertDriverAssignedToBooking } from '../common/booking-access.util';
 
 const bookingInclude = {
   client: true,
@@ -61,6 +63,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly realtime: RealtimeEmitter,
+    private readonly audit: AuditService,
   ) {}
 
   async create(dto: CreateBookingDto, staffId: string) {
@@ -151,6 +154,15 @@ export class BookingsService {
     });
 
     this.realtime.emit('booking.created', mapBooking(booking, 0));
+
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: staffId,
+      action: 'booking.create',
+      entity: 'booking',
+      entityId: booking.id,
+      diff: { znCode: booking.znCode, clientId: booking.clientId },
+    });
 
     return mapBooking(booking, 0);
   }
@@ -280,7 +292,62 @@ export class BookingsService {
     });
 
     const paidAmount = await this.getPaidAmount(id);
-    return mapBooking(row, paidAmount);
+    const mapped = mapBooking(row, paidAmount);
+    this.realtime.emit('booking.updated', mapped);
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'booking.update',
+      entity: 'booking',
+      entityId: id,
+      diff: {
+        znCode: row.znCode,
+        status: dto.status,
+        partySize: dto.partySize,
+        packageId: dto.packageId,
+        arrivalDate: dto.arrivalDate,
+        departureDate: dto.departureDate,
+        isVip: dto.isVip,
+      },
+    });
+    return mapped;
+  }
+
+  async listVendorBookings(bookingId: string, user: AuthPrincipal) {
+    await this.ensureBookingReadable(bookingId, user);
+
+    const rows = await this.prisma.vendorBooking.findMany({
+      where: { bookingId },
+      orderBy: [{ serviceDate: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        vendor: true,
+        booking: { include: { client: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      vendorId: row.vendorId,
+      vendorName: row.vendor.name,
+      vendorType: row.vendor.type,
+      vendorCity: row.vendor.city,
+      bookingId: row.bookingId,
+      znCode: row.booking.znCode,
+      clientName: row.booking.client.fullName,
+      itineraryItemId: row.itineraryItemId,
+      amount: row.amount != null ? decimalToNumber(row.amount) : null,
+      commissionAmount:
+        row.commissionAmount != null
+          ? decimalToNumber(row.commissionAmount)
+          : null,
+      serviceDate: row.serviceDate?.toISOString().slice(0, 10) ?? null,
+      pax: row.pax,
+      details: row.details,
+      voucherCode: row.voucherCode,
+      voucherSentAt: row.voucherSentAt?.toISOString() ?? null,
+      status: row.status,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
 
   async listChecklist(bookingId: string, user: AuthPrincipal) {
@@ -501,6 +568,11 @@ export class BookingsService {
   private async ensureBookingReadable(bookingId: string, user: AuthPrincipal) {
     const booking = await this.ensureBookingExists(bookingId);
     this.assertBookingAccess(booking.clientId, user);
+    await assertDriverAssignedToBooking({
+      user,
+      bookingId,
+      driverAssignments: this.prisma.driverAssignment,
+    });
     return booking;
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ItineraryItemStatus, StaffRole } from '@prisma/client';
-import { COMMITTED_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
+import { ItineraryItemStatus, Prisma, StaffRole } from '@prisma/client';
+import { COMMITTED_ASSIGNMENT_STATUSES, OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
+import { assertDriverAssignedToBooking } from '../common/booking-access.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -228,11 +229,12 @@ export class ItinerariesService {
     return created.map(mapItineraryItem);
   }
 
-  async dailyOperations(query: DailyOperationsQuery) {
+  async dailyOperations(query: DailyOperationsQuery, user: AuthPrincipal) {
     const date = new Date(query.date);
+    const scope = await this.driverDailyOpsScope(user);
 
     const rows = await this.prisma.itineraryItem.findMany({
-      where: { itemDate: date },
+      where: { itemDate: date, ...scope },
       orderBy: [{ startTime: 'asc' }, { sortOrder: 'asc' }],
       include: {
         booking: {
@@ -256,16 +258,17 @@ export class ItinerariesService {
     };
   }
 
-  async dailyOperationsWeek(query: DailyOperationsWeekQuery) {
+  async dailyOperationsWeek(query: DailyOperationsWeekQuery, user: AuthPrincipal) {
     const start = new Date(query.start);
     const days: DailyOperationsDayDto[] = [];
+    const scope = await this.driverDailyOpsScope(user);
 
     for (let offset = 0; offset < 7; offset++) {
       const date = this.addDays(start, offset);
       const dateStr = date.toISOString().slice(0, 10);
 
       const rows = await this.prisma.itineraryItem.findMany({
-        where: { itemDate: date },
+        where: { itemDate: date, ...scope },
         orderBy: [{ startTime: 'asc' }, { sortOrder: 'asc' }],
         include: {
           booking: {
@@ -292,6 +295,48 @@ export class ItinerariesService {
     }
 
     return { start: query.start, days };
+  }
+
+  /** Swap sortOrder with adjacent item on the same day (smallest reorder API). */
+  async moveItem(
+    itemId: string,
+    direction: 'up' | 'down',
+    user: AuthPrincipal,
+  ) {
+    this.assertStaffWrite(user);
+    const item = await this.ensureItemExists(itemId);
+
+    const siblings = await this.prisma.itineraryItem.findMany({
+      where: { bookingId: item.bookingId, dayNumber: item.dayNumber },
+      orderBy: [{ sortOrder: 'asc' }, { startTime: 'asc' }, { createdAt: 'asc' }],
+    });
+    const index = siblings.findIndex((s) => s.id === itemId);
+    if (index < 0) throw AppError.notFound('ITINERARY_ITEM_NOT_FOUND', 'Itinerary item not found');
+
+    const swapWith =
+      direction === 'up' ? siblings[index - 1] : siblings[index + 1];
+    if (!swapWith) {
+      return mapItineraryItem(item);
+    }
+
+    const currentOrder = item.sortOrder;
+    const otherOrder = swapWith.sortOrder;
+
+    await this.prisma.$transaction([
+      this.prisma.itineraryItem.update({
+        where: { id: item.id },
+        data: { sortOrder: otherOrder },
+      }),
+      this.prisma.itineraryItem.update({
+        where: { id: swapWith.id },
+        data: { sortOrder: currentOrder },
+      }),
+    ]);
+
+    const updated = await this.prisma.itineraryItem.findUniqueOrThrow({
+      where: { id: itemId },
+    });
+    return mapItineraryItem(updated);
   }
 
   private parseTime(value: string): Date {
@@ -325,11 +370,49 @@ export class ItinerariesService {
     return booking;
   }
 
+  private async driverDailyOpsScope(
+    user: AuthPrincipal,
+  ): Promise<Prisma.ItineraryItemWhereInput> {
+    if (user.type !== 'staff' || user.role !== StaffRole.driver) {
+      return {};
+    }
+
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId: user.sub },
+      select: { id: true },
+    });
+    if (!profile) {
+      return { bookingId: { in: [] } };
+    }
+
+    const assignments = await this.prisma.driverAssignment.findMany({
+      where: {
+        driverId: profile.id,
+        status: { in: OPEN_ASSIGNMENT_STATUSES },
+      },
+      select: { bookingId: true },
+    });
+    const bookingIds = assignments.map((a) => a.bookingId);
+
+    if (!bookingIds.length) {
+      return { driverId: profile.id };
+    }
+
+    return {
+      OR: [{ driverId: profile.id }, { bookingId: { in: bookingIds } }],
+    };
+  }
+
   private async ensureBookingReadable(bookingId: string, user: AuthPrincipal) {
     const booking = await this.ensureBookingExists(bookingId);
     if (user.type === 'client' && booking.clientId !== user.sub) {
       throw AppError.forbidden();
     }
+    await assertDriverAssignedToBooking({
+      user,
+      bookingId,
+      driverAssignments: this.prisma.driverAssignment,
+    });
     return booking;
   }
 

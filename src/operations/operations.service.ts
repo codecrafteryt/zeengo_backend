@@ -125,6 +125,16 @@ export class OperationsService {
         checklistItems: { orderBy: { sortOrder: 'asc' } },
         editRequests: { orderBy: { createdAt: 'desc' }, take: 20 },
         payments: { orderBy: { createdAt: 'desc' }, take: 50 },
+        vendorBookings: {
+          include: { vendor: true },
+          orderBy: [{ serviceDate: 'asc' }, { createdAt: 'desc' }],
+        },
+        tasks: {
+          include: { assignee: true },
+          orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+          take: 100,
+        },
+        sosAlerts: { orderBy: { createdAt: 'desc' }, take: 20 },
         driverAssignments: {
           where: openAssignmentWhere(),
           include: { driver: { include: { user: true } } },
@@ -156,16 +166,25 @@ export class OperationsService {
       .reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
     const driverAssignment = booking.driverAssignments[0];
     const driver = driverAssignment?.driver;
+    const vehicle = [driver?.vehicleMake, driver?.vehicleModel]
+      .filter(Boolean)
+      .join(' ');
+
+    const tasksOpen = booking.tasks.filter((t) => t.status === 'open').length;
+    const tasksDone = booking.tasks.filter((t) => t.status === 'done').length;
 
     return {
       bookingId: booking.id,
+      clientId: booking.clientId,
       znCode: booking.znCode,
       clientName: booking.client.fullName,
       clientPhone: booking.client.phone,
       clientEmail: booking.client.email,
       nationality: booking.client.nationality,
+      packageId: booking.packageId,
       packageName: booking.package?.name ?? null,
       status: booking.status,
+      isVip: booking.isVip,
       arrivalDate: booking.arrivalDate?.toISOString().slice(0, 10) ?? null,
       departureDate: booking.departureDate?.toISOString().slice(0, 10) ?? null,
       partySize: booking.partySize,
@@ -173,11 +192,19 @@ export class OperationsService {
       paidAmount,
       dueAmount: Math.max(0, Math.round((totalAmount - paidAmount) * 100) / 100),
       internalNotes: booking.internalNotes,
+      createdAt: booking.createdAt.toISOString(),
+      updatedAt: booking.updatedAt.toISOString(),
       days,
       staff: booking.staffLinks.map(mapStaffLink),
+      driverAssignmentId: driverAssignment?.id ?? null,
       driverName: driver?.user.fullName ?? null,
       driverPhone: driver?.user.phone ?? null,
+      driverVehicle: vehicle || null,
       assignmentStatus: driverAssignment?.status ?? null,
+      assignmentStartDate:
+        driverAssignment?.startDate?.toISOString().slice(0, 10) ?? null,
+      assignmentEndDate:
+        driverAssignment?.endDate?.toISOString().slice(0, 10) ?? null,
       checklist: booking.checklistItems.map((c) => ({
         id: c.id,
         title: c.title,
@@ -197,6 +224,47 @@ export class OperationsService {
         status: p.status,
         createdAt: p.createdAt.toISOString(),
       })),
+      vendorBookings: booking.vendorBookings.map((vb) => ({
+        id: vb.id,
+        vendorId: vb.vendorId,
+        vendorName: vb.vendor.name,
+        vendorType: vb.vendor.type,
+        vendorCity: vb.vendor.city,
+        serviceDate: vb.serviceDate?.toISOString().slice(0, 10) ?? null,
+        pax: vb.pax,
+        details: vb.details,
+        status: vb.status,
+        amount: vb.amount != null ? decimalToNumber(vb.amount) : null,
+        voucherCode: vb.voucherCode,
+      })),
+      tasks: booking.tasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        priority: t.priority,
+        status: t.status,
+        dueDate: t.dueDate?.toISOString().slice(0, 10) ?? null,
+        assigneeName: t.assignee?.fullName ?? null,
+        createdAt: t.createdAt.toISOString(),
+        completedAt: t.completedAt?.toISOString() ?? null,
+      })),
+      sosAlerts: booking.sosAlerts.map((s) => ({
+        id: s.id,
+        status: s.status,
+        message: s.message,
+        createdAt: s.createdAt.toISOString(),
+        resolvedAt: s.resolvedAt?.toISOString() ?? null,
+      })),
+      counts: {
+        itineraryItems: booking.itineraryItems.length,
+        tasksOpen,
+        tasksDone,
+        vendors: booking.vendorBookings.length,
+        editRequestsPending: booking.editRequests.filter(
+          (e) => e.status === 'pending',
+        ).length,
+        sosActive: booking.sosAlerts.filter((s) => s.status === 'active').length,
+      },
     };
   }
 

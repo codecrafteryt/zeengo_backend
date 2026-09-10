@@ -12,6 +12,7 @@ export type RealtimeEvent =
   | 'chat.typing'
   | 'notification.new'
   | 'booking.created'
+  | 'booking.updated'
   | 'driver.updated'
   | 'driver.gps'
   | 'assignment.created'

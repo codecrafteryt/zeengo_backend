@@ -479,6 +479,34 @@ export class ChatService {
   private async ensureOpsChannels(user: AuthPrincipal) {
     if (!user.role || !CHAT_STAFF_ROLES.includes(user.role)) return;
 
+    // Drivers only join booking threads they are assigned to — never Ops floor.
+    if (user.role === StaffRole.driver) {
+      const assignments = await this.prisma.driverAssignment.findMany({
+        where: {
+          driver: { userId: user.sub },
+          status: { in: OPEN_ASSIGNMENT_STATUSES },
+        },
+        select: { bookingId: true },
+      });
+      const bookingIds = assignments.map((a) => a.bookingId);
+      if (!bookingIds.length) return;
+      const threads = await this.prisma.conversation.findMany({
+        where: { bookingId: { in: bookingIds } },
+        select: { id: true },
+      });
+      if (!threads.length) return;
+      await this.prisma.conversationParticipant.createMany({
+        data: threads.map((t) => ({
+          conversationId: t.id,
+          participantType: ParticipantType.staff,
+          participantKey: `staff:${user.sub}`,
+          staffId: user.sub,
+        })),
+        skipDuplicates: true,
+      });
+      return;
+    }
+
     let team = await this.prisma.conversation.findFirst({
       where: { type: ConversationType.team, title: 'Ops floor' },
     });
@@ -489,7 +517,11 @@ export class ChatService {
     }
 
     const staff = await this.prisma.staffUser.findMany({
-      where: { deletedAt: null, isActive: true },
+      where: {
+        deletedAt: null,
+        isActive: true,
+        role: { not: StaffRole.driver },
+      },
       select: { id: true },
     });
     await this.prisma.conversationParticipant.createMany({
@@ -535,30 +567,6 @@ export class ChatService {
           bookingId: { in: bookingIds },
           type: { in: [ConversationType.booking_support, ConversationType.client_direct] },
         },
-        select: { id: true },
-      });
-      if (!threads.length) return;
-      await this.prisma.conversationParticipant.createMany({
-        data: threads.map((t) => ({
-          conversationId: t.id,
-          participantType: ParticipantType.staff,
-          participantKey: `staff:${user.sub}`,
-          staffId: user.sub,
-        })),
-        skipDuplicates: true,
-      });
-      return;
-    }
-
-    if (user.role === StaffRole.driver) {
-      const assignments = await this.prisma.driverAssignment.findMany({
-        where: { driver: { userId: user.sub }, status: { in: OPEN_ASSIGNMENT_STATUSES } },
-        select: { bookingId: true },
-      });
-      const bookingIds = assignments.map((a) => a.bookingId);
-      if (!bookingIds.length) return;
-      const threads = await this.prisma.conversation.findMany({
-        where: { bookingId: { in: bookingIds } },
         select: { id: true },
       });
       if (!threads.length) return;
@@ -742,6 +750,17 @@ export class ChatService {
     if (!booking) throw AppError.notFound('BOOKING_NOT_FOUND', 'Booking not found');
     if (user.type === 'client' && booking.clientId !== user.sub) {
       throw AppError.forbidden();
+    }
+    if (user.type === 'staff' && user.role === StaffRole.driver) {
+      const assignment = await tx.driverAssignment.findFirst({
+        where: {
+          bookingId,
+          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          driver: { userId: user.sub },
+        },
+        select: { id: true },
+      });
+      if (!assignment) throw AppError.forbidden();
     }
   }
 

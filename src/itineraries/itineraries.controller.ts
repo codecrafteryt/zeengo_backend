@@ -19,6 +19,7 @@ import {
   dailyOperationsQuerySchema,
   dailyOperationsWeekQuerySchema,
   importItinerarySchema,
+  moveItineraryItemSchema,
   updateItineraryItemSchema,
 } from './itineraries.schema';
 import type {
@@ -26,6 +27,7 @@ import type {
   DailyOperationsQuery,
   DailyOperationsWeekQuery,
   ImportItineraryDto,
+  MoveItineraryItemDto,
   UpdateItineraryItemDto,
 } from './itineraries.schema';
 import { ItinerariesService } from './itineraries.service';
@@ -89,6 +91,16 @@ export class ItinerariesController {
     return this.itinerariesService.updateItem(itemId, body, user);
   }
 
+  @Post('itinerary/items/:itemId/move')
+  @Roles(...ITINERARY_WRITE_ROLES)
+  moveItem(
+    @Param('itemId') itemId: string,
+    @Body(zodPipe(moveItineraryItemSchema)) body: MoveItineraryItemDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.itinerariesService.moveItem(itemId, body.direction, user);
+  }
+
   @Delete('itinerary/items/:itemId')
   @Roles(...ITINERARY_WRITE_ROLES)
   deleteItem(
@@ -107,8 +119,9 @@ export class ItinerariesController {
   )
   dailyOperations(
     @Query(zodPipe(dailyOperationsQuerySchema)) query: DailyOperationsQuery,
+    @CurrentUser() user: AuthPrincipal,
   ) {
-    return this.itinerariesService.dailyOperations(query);
+    return this.itinerariesService.dailyOperations(query, user);
   }
 
   @Get('daily-operations/week')
@@ -120,7 +133,8 @@ export class ItinerariesController {
   )
   dailyOperationsWeek(
     @Query(zodPipe(dailyOperationsWeekQuerySchema)) query: DailyOperationsWeekQuery,
+    @CurrentUser() user: AuthPrincipal,
   ) {
-    return this.itinerariesService.dailyOperationsWeek(query);
+    return this.itinerariesService.dailyOperationsWeek(query, user);
   }
 }

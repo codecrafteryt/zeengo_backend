@@ -49,6 +49,10 @@ export const dailyOperationsWeekQuerySchema = z.object({
   start: z.string().date(),
 });
 
+export const moveItineraryItemSchema = z.object({
+  direction: z.enum(['up', 'down']),
+});
+
 export type CreateItineraryItemDto = z.infer<typeof createItineraryItemSchema>;
 export type UpdateItineraryItemDto = z.infer<typeof updateItineraryItemSchema>;
 export type ImportItineraryDto = z.infer<typeof importItinerarySchema>;
@@ -56,3 +60,4 @@ export type DailyOperationsQuery = z.infer<typeof dailyOperationsQuerySchema>;
 export type DailyOperationsWeekQuery = z.infer<
   typeof dailyOperationsWeekQuerySchema
 >;
+export type MoveItineraryItemDto = z.infer<typeof moveItineraryItemSchema>;
