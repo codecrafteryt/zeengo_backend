@@ -24,6 +24,7 @@ RUN apt-get update \
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+COPY scripts ./scripts
 RUN npm ci --omit=dev && npx prisma generate
 
 COPY --from=builder /app/dist ./dist
