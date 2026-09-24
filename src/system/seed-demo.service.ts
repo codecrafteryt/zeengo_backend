@@ -1,0 +1,177 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  DEMO_STAFF,
+  DEMO_STAFF_PASSWORD,
+  ensureDemoStaff,
+} from '../auth/ensure-demo-staff';
+
+const PACKAGES = [
+  {
+    name: 'Love Package',
+    slug: 'love-package',
+    pricePerPerson: 225,
+    minPersons: 2,
+    durationDays: 4,
+    description:
+      'Romantic Moscow getaway for couples — private transfers, halal dining, and curated city experiences.',
+    inclusions: [
+      'Moscow city 2 days',
+      'Private halal restaurant reservations',
+      'Red Square & Kremlin walking tour',
+      'Couples spa session',
+      'Airport meet & greet',
+      'Dedicated support line',
+    ],
+  },
+  {
+    name: 'Family Package',
+    slug: 'family-package',
+    pricePerPerson: 280,
+    minPersons: 1,
+    durationDays: 5,
+    description:
+      'Moscow 3 days + Yakhorma 2 days family adventure with kid-friendly activities.',
+    inclusions: [
+      'Moscow city 3 days',
+      'Yakhorma countryside 2 days',
+      'Russian farm visit',
+      'Private halal bus',
+      'Halal restaurants only',
+      'Family-friendly hotel rooms',
+    ],
+  },
+  {
+    name: 'Relaxation Package',
+    slug: 'relaxation-package',
+    pricePerPerson: 380,
+    minPersons: 1,
+    durationDays: 6,
+    description:
+      'Unhurried pace with wellness focus — spa, nature, and premium halal dining across Moscow and Yakhorma.',
+    inclusions: [
+      'Moscow city 3 days at leisure',
+      'Yakhorma nature retreat 3 days',
+      'Daily spa / wellness sessions',
+      'Private driver on call',
+      'Premium halal dining',
+      'Flexible daily schedule',
+    ],
+  },
+  {
+    name: 'Royal Package',
+    slug: 'royal-package',
+    pricePerPerson: 1200,
+    minPersons: 1,
+    durationDays: 10,
+    description:
+      'Premium VIP experience — luxury hotels, private guides, bespoke itinerary, and white-glove service throughout.',
+    inclusions: [
+      'Moscow 5 days luxury stay',
+      'St. Petersburg 3 days extension',
+      'Yakhorma 2 days private estate',
+      'Private Mercedes fleet',
+      'Personal concierge 24/7',
+      'All premium halal dining',
+      'VIP airport fast-track',
+      'Custom itinerary planning',
+    ],
+  },
+] as const;
+
+@Injectable()
+export class SeedDemoService {
+  private readonly logger = new Logger(SeedDemoService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async runCoreSeed(options?: { forceDemoPassword?: boolean }): Promise<{
+    staffEmails: string[];
+    packageSlugs: string[];
+    password: string;
+  }> {
+    await this.prisma.$executeRawUnsafe(
+      `CREATE SEQUENCE IF NOT EXISTS zn_seq START 1`,
+    );
+
+    const password = options?.forceDemoPassword
+      ? DEMO_STAFF_PASSWORD
+      : this.config.get<string>('SEED_STAFF_PASSWORD')?.trim() ||
+        this.config.get<string>('SEED_ADMIN_PASSWORD')?.trim() ||
+        DEMO_STAFF_PASSWORD;
+
+    await ensureDemoStaff(this.prisma, password);
+
+    const adminEmail =
+      this.config.get<string>('SEED_ADMIN_EMAIL')?.trim() || 'admin@zeengo.com';
+    const admin = await this.prisma.staffUser.findUnique({
+      where: { email: adminEmail },
+    });
+    if (!admin) {
+      throw new Error('Admin staff user was not seeded');
+    }
+
+    const packageSlugs: string[] = [];
+    for (const pkg of PACKAGES) {
+      await this.prisma.package.upsert({
+        where: { slug: pkg.slug },
+        update: {
+          name: pkg.name,
+          pricePerPerson: pkg.pricePerPerson,
+          minPersons: pkg.minPersons,
+          durationDays: pkg.durationDays,
+          description: pkg.description,
+          inclusions: [...pkg.inclusions],
+          isActive: true,
+          deletedAt: null,
+        },
+        create: {
+          name: pkg.name,
+          slug: pkg.slug,
+          pricePerPerson: pkg.pricePerPerson,
+          minPersons: pkg.minPersons,
+          durationDays: pkg.durationDays,
+          description: pkg.description,
+          inclusions: [...pkg.inclusions],
+          isActive: true,
+        },
+      });
+      packageSlugs.push(pkg.slug);
+    }
+
+    const settings = [
+      { key: 'vip_price', value: 100 },
+      { key: 'stripe_link_expiry_hours', value: 48 },
+      { key: 'company_profile', value: {} },
+    ] as const;
+
+    for (const setting of settings) {
+      await this.prisma.setting.upsert({
+        where: { key: setting.key },
+        update: {
+          value: setting.value,
+          updatedBy: admin.id,
+        },
+        create: {
+          key: setting.key,
+          value: setting.value,
+          updatedBy: admin.id,
+        },
+      });
+    }
+
+    this.logger.log(
+      `Core seed complete: ${DEMO_STAFF.length} staff, ${packageSlugs.length} packages`,
+    );
+
+    return {
+      staffEmails: DEMO_STAFF.map((s) => s.email),
+      packageSlugs,
+      password,
+    };
+  }
+}
