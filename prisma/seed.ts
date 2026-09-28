@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { ensureDemoStaff } from '../src/auth/ensure-demo-staff';
+import { seedClientV2 } from './seed-client-v2';
 
 const prisma = new PrismaClient();
 
@@ -540,6 +541,8 @@ async function main(): Promise<void> {
   }
   console.log(`Packages seeded: ${packages.map((p) => p.slug).join(', ')}`);
   console.log(`Settings seeded: ${settings.map((s) => s.key).join(', ')}`);
+
+  await seedClientV2(prisma);
 }
 
 main()

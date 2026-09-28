@@ -827,3 +827,106 @@ model StripeWebhookEvent {
   @@index([type])
   @@map("stripe_webhook_events")
 }
+
+// ---------------------------------------------------------------------------
+// Client app v2 discovery (aLo Home / Around / Explore Russia / My Trip)
+// Additive — does not change v1 client-portal APIs.
+// ---------------------------------------------------------------------------
+
+model DiscoveryPlace {
+  id                String   @id @default(uuid()) @db.Uuid
+  slug              String   @unique
+  title             String
+  description       String   @default("")
+  arabicDescription String?  @map("arabic_description")
+  area              String?
+  category          String   @default("Sight")
+  aroundSection     String?  @map("around_section")
+  homeRail          String?  @map("home_rail")
+  imageUrl          String?  @map("image_url")
+  lat               Float
+  lng               Float
+  openLabel         String?  @map("open_label")
+  priceLabel        String?  @map("price_label")
+  badge             String?
+  isFree            Boolean  @default(true) @map("is_free")
+  subtitle          String?
+  foodDescription   String?  @map("food_description")
+  foodLocation      String?  @map("food_location")
+  halalFriendly     Boolean  @default(false) @map("halal_friendly")
+  sortOrder         Int      @default(0) @map("sort_order")
+  isPublished       Boolean  @default(true) @map("is_published")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([aroundSection, sortOrder])
+  @@index([homeRail, sortOrder])
+  @@index([category])
+  @@map("discovery_places")
+}
+
+model DiscoveryDestination {
+  id             String   @id @default(uuid()) @db.Uuid
+  slug           String   @unique
+  title          String
+  tags           String[] @default([])
+  imageUrl       String?  @map("image_url")
+  usePlaceholder Boolean  @default(false) @map("use_placeholder")
+  nearMe         Boolean  @default(false) @map("near_me")
+  today          Boolean  @default(false)
+  daylight       Boolean  @default(false)
+  sortOrder      Int      @default(0) @map("sort_order")
+  isPublished    Boolean  @default(true) @map("is_published")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([sortOrder])
+  @@map("discovery_destinations")
+}
+
+model DiscoveryChip {
+  id          String   @id @default(uuid()) @db.Uuid
+  kind        String
+  key         String
+  label       String
+  subtitle    String?
+  iconKey     String?  @map("icon_key")
+  meta        Json     @default("{}")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPublished Boolean  @default(true) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([kind, key])
+  @@index([kind, sortOrder])
+  @@map("discovery_chips")
+}
+
+model DiscoveryTripDay {
+  id        String              @id @default(uuid()) @db.Uuid
+  dayNumber Int                 @unique @map("day_number")
+  title     String
+  mosqueKm  Float               @map("mosque_km")
+  sortOrder Int                 @default(0) @map("sort_order")
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  stops     DiscoveryTripStop[]
+
+  @@map("discovery_trip_days")
+}
+
+model DiscoveryTripStop {
+  id        String           @id @default(uuid()) @db.Uuid
+  dayId     String           @map("day_id") @db.Uuid
+  title     String
+  subtitle  String?
+  lat       Float?
+  lng       Float?
+  sortOrder Int              @default(0) @map("sort_order")
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  day       DiscoveryTripDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@index([dayId, sortOrder])
+  @@map("discovery_trip_stops")
+}

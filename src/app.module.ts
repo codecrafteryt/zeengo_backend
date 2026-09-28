@@ -35,6 +35,7 @@ import { AiModule } from './ai/ai.module';
 import { JobsModule } from './jobs/jobs.module';
 import { OperationsModule } from './operations/operations.module';
 import { ClientPortalModule } from './client-portal/client-portal.module';
+import { ClientV2Module } from './client-v2/client-v2.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
@@ -72,6 +73,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     VendorsModule,
     OperationsModule,
     ClientPortalModule,
+    ClientV2Module,
     EmailsModule,
     AiModule,
   ],
