@@ -34,5 +34,28 @@ export function validateEnv(config: Record<string, unknown>): Env {
       .join('; ');
     throw new Error(`Invalid environment: ${message}`);
   }
-  return parsed.data;
+
+  const data = parsed.data;
+  if (data.NODE_ENV === 'production') {
+    const stripe = (data.STRIPE_SECRET_KEY || '').trim();
+    if (!stripe || !stripe.startsWith('sk_') || stripe.includes('replace')) {
+      // Soft warning at boot — hard fail happens on Stripe link create.
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[env] NODE_ENV=production but STRIPE_SECRET_KEY is missing/invalid. Stripe payment links will return 503.',
+      );
+    }
+    if (
+      !(data.FCM_SERVICE_ACCOUNT_JSON || '').trim() &&
+      !(data.FCM_SERVICE_ACCOUNT_PATH || '').trim() &&
+      !(data.GOOGLE_APPLICATION_CREDENTIALS || '').trim()
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[env] NODE_ENV=production but FCM credentials are missing. Push delivery will report fcm_not_configured.',
+      );
+    }
+  }
+
+  return data;
 }

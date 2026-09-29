@@ -3,10 +3,17 @@ import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/roles.decorator';
 import { zodPipe } from '../common/pipes/zod-validation.pipe';
 import {
+  catalogQuerySchema,
   destinationsQuerySchema,
   nearbyPlacesQuerySchema,
+  searchQuerySchema,
 } from './client-v2.schema';
-import type { DestinationsQuery, NearbyPlacesQuery } from './client-v2.schema';
+import type {
+  CatalogQuery,
+  DestinationsQuery,
+  NearbyPlacesQuery,
+  SearchQuery,
+} from './client-v2.schema';
 import { ClientV2Service } from './client-v2.service';
 
 /**
@@ -39,6 +46,36 @@ export class ClientV2Controller {
     @Query(zodPipe(destinationsQuerySchema)) query: DestinationsQuery,
   ) {
     return this.clientV2Service.listDestinations(query);
+  }
+
+  @Get('catalog/hotels')
+  hotels(@Query(zodPipe(catalogQuerySchema)) query: CatalogQuery) {
+    return this.clientV2Service.listHotels(query);
+  }
+
+  @Get('catalog/activities')
+  activities(@Query(zodPipe(catalogQuerySchema)) query: CatalogQuery) {
+    return this.clientV2Service.listActivities(query);
+  }
+
+  @Get('catalog/guides')
+  guides(@Query(zodPipe(catalogQuerySchema)) query: CatalogQuery) {
+    return this.clientV2Service.listGuides(query);
+  }
+
+  @Get('catalog/restaurants')
+  restaurants(@Query(zodPipe(catalogQuerySchema)) query: CatalogQuery) {
+    return this.clientV2Service.listRestaurants(query);
+  }
+
+  @Get('catalog/cars')
+  cars(@Query(zodPipe(catalogQuerySchema)) query: CatalogQuery) {
+    return this.clientV2Service.listCars(query);
+  }
+
+  @Get('search')
+  search(@Query(zodPipe(searchQuerySchema)) query: SearchQuery) {
+    return this.clientV2Service.search(query);
   }
 
   @Get('trip')

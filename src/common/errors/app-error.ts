@@ -38,4 +38,8 @@ export class AppError extends HttpException {
   static validation(message: string, details?: unknown) {
     return new AppError('VALIDATION_ERROR', message, HttpStatus.BAD_REQUEST, details);
   }
+
+  static serviceUnavailable(code: string, message: string, details?: unknown) {
+    return new AppError(code, message, HttpStatus.SERVICE_UNAVAILABLE, details);
+  }
 }

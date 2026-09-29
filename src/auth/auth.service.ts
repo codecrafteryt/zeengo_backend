@@ -15,6 +15,7 @@ import {
   verifyPassword,
 } from '../common/crypto.util';
 import { mapStaffUser } from '../users/users.mapper';
+import { isBookingEligibleForClientLogin } from './client-auth.policy';
 
 type TokenPayload = {
   sub: string;
@@ -204,47 +205,8 @@ export class AuthService {
     fcmToken?: string,
     platform?: string,
   ) {
-    const code = bookingCode.trim();
-    const booking = await this.prisma.booking.findFirst({
-      where: { znCode: { equals: code, mode: 'insensitive' } },
-      include: { client: true },
-    });
-
-    if (!booking || booking.client.deletedAt) {
-      throw AppError.unauthorized('Invalid booking code');
-    }
-
-    if (fcmToken) {
-      await this.saveClientFcmToken(
-        booking.client.id,
-        fcmToken,
-        platform ?? 'android',
-      );
-    }
-
-    const tokens = await this.issueTokens({
-      sub: booking.client.id,
-      type: 'client',
-    });
-
-    await this.audit.log({
-      actorType: 'client',
-      actorId: booking.client.id,
-      action: 'auth.client_login',
-      entity: 'bookings',
-      entityId: booking.id,
-      diff: { znCode: booking.znCode },
-    });
-
-    return {
-      ...tokens,
-      user: this.mapClient(booking.client),
-      booking: {
-        id: booking.id,
-        znCode: booking.znCode,
-        status: booking.status,
-      },
-    };
+    // Same status rules as zn-login: cancelled bookings cannot authenticate.
+    return this.clientLoginByZnCode(bookingCode, fcmToken, platform);
   }
 
   /** Guest mobile entry: booking code (ZN####) is the client identity. */
@@ -262,6 +224,9 @@ export class AuthService {
       include: { client: true },
     });
     if (!booking || booking.client.deletedAt) {
+      throw AppError.unauthorized('Invalid booking code');
+    }
+    if (!isBookingEligibleForClientLogin(booking.status)) {
       throw AppError.unauthorized('Invalid booking code');
     }
 

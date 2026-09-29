@@ -71,14 +71,24 @@ export class ClientPortalService {
         ? latestAssignment
         : null;
 
+    /** Pending / completed still shown on My Trip (no phone until accepted). */
+    const guestStatusAssignment =
+      latestAssignment &&
+      ['pending', 'accepted', 'in_progress', 'active', 'completed'].includes(
+        latestAssignment.status,
+      )
+        ? latestAssignment
+        : null;
+
     const paid = payments
       .filter((p) => p.status === PaymentStatus.paid)
       .reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
     const total = decimalToNumber(booking.totalAmount);
     const driver =
-      visibleAssignment?.driver ??
+      guestStatusAssignment?.driver ??
       todayItems.find((i) => i.driver)?.driver ??
       null;
+    const shareDriverContact = Boolean(visibleAssignment);
 
     return {
       bookingId: booking.id,
@@ -120,8 +130,10 @@ export class ClientPortalService {
       driver: driver
         ? {
             name: driver.user.fullName,
-            phone: driver.user.phone,
-            vehicle: [driver.vehicleMake, driver.vehicleModel].filter(Boolean).join(' '),
+            phone: shareDriverContact ? driver.user.phone : null,
+            vehicle: [driver.vehicleMake, driver.vehicleModel]
+              .filter(Boolean)
+              .join(' '),
           }
         : null,
     };
@@ -329,7 +341,8 @@ export class ClientPortalService {
       guideContact: string | null;
       pdfUrl: string | null;
       notes: string | null;
-      vendor?: { name: string; type: string } | null;
+      vendorId?: string | null;
+      vendor?: { id?: string; name: string; type: string } | null;
     },
     znCode: string,
   ) {
@@ -347,6 +360,7 @@ export class ClientPortalService {
       guideContact: item.guideContact,
       pdfUrl: item.pdfUrl,
       notes: item.notes,
+      vendorId: item.vendorId ?? item.vendor?.id ?? null,
       vendorName: item.vendor?.name ?? null,
       vendorType: item.vendor?.type ?? null,
       qrPayload: JSON.stringify({

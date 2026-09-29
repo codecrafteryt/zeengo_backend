@@ -19,7 +19,7 @@ const prisma = new PrismaClient();
 
 type VendorRow = {
   name: string;
-  type: 'hotel' | 'activity' | 'guide' | 'driver';
+  type: 'hotel' | 'activity' | 'guide' | 'driver' | 'b2b' | 'service';
   city?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -55,6 +55,7 @@ type KitchenData = {
   guides: VendorRow[];
   drivers: DriverRow[];
   clients: ClientRow[];
+  b2b?: VendorRow[];
 };
 
 function vendorKey(name: string, type: string, city?: string | null) {
@@ -355,7 +356,7 @@ async function main(): Promise<void> {
 
   console.log(`Seeding from ${jsonPath}`);
   console.log(
-    `hotels=${data.hotels.length} activities=${data.activities.length} guides=${data.guides.length} drivers=${data.drivers.length} clients=${data.clients.length} bookings=${createBookings}`,
+    `hotels=${data.hotels.length} activities=${data.activities.length} guides=${data.guides.length} b2b=${data.b2b?.length ?? 0} drivers=${data.drivers.length} clients=${data.clients.length} bookings=${createBookings}`,
   );
 
   const hotels = await seedVendors(data.hotels.map((h) => ({ ...h, type: 'hotel' })), VendorType.hotel);
@@ -364,6 +365,10 @@ async function main(): Promise<void> {
     VendorType.activity,
   );
   const guides = await seedVendors(data.guides.map((g) => ({ ...g, type: 'guide' })), VendorType.guide);
+  const b2b = await seedVendors(
+    (data.b2b ?? []).map((b) => ({ ...b, type: 'b2b' })),
+    VendorType.b2b,
+  );
 
   const drivers = { created: 0, updated: 0, skipped: 0 };
   for (const row of data.drivers) {
@@ -401,7 +406,7 @@ async function main(): Promise<void> {
 
   console.log(
     JSON.stringify(
-      { hotels, activities, guides, drivers, clients, bookings, db: { vendorCount, byType, clientCount, driverCount, bookingCount } },
+      { hotels, activities, guides, b2b, drivers, clients, bookings, db: { vendorCount, byType, clientCount, driverCount, bookingCount } },
       null,
       2,
     ),

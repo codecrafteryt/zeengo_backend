@@ -30,7 +30,8 @@ export class FinanceService {
       paidAt: { gte: startOfToday },
     };
 
-    const [todayAgg, stripeAgg, cashAgg, pendingAgg, pendingCount] = await Promise.all([
+    const [todayAgg, stripeAgg, cashAgg, pendingAgg, pendingCount, paidAll, stripeAll, cashAll] =
+      await Promise.all([
       this.prisma.payment.aggregate({
         where: paidTodayWhere,
         _sum: { amount: true },
@@ -53,6 +54,21 @@ export class FinanceService {
       this.prisma.payment.count({
         where: { status: { in: PENDING_STATUSES } },
       }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.paid },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.paid, method: PaymentMethod.stripe },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.paid, method: PaymentMethod.cash },
+        _sum: { amount: true },
+        _count: true,
+      }),
     ]);
 
     return {
@@ -68,6 +84,20 @@ export class FinanceService {
         cash: {
           amount: decimalToNumber(cashAgg._sum.amount),
           count: cashAgg._count,
+        },
+      },
+      allTime: {
+        paid: {
+          amount: decimalToNumber(paidAll._sum.amount),
+          count: paidAll._count,
+        },
+        stripe: {
+          amount: decimalToNumber(stripeAll._sum.amount),
+          count: stripeAll._count,
+        },
+        cash: {
+          amount: decimalToNumber(cashAll._sum.amount),
+          count: cashAll._count,
         },
       },
       pending: {

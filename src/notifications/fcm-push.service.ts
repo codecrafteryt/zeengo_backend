@@ -68,11 +68,11 @@ export class FcmPushService implements OnModuleInit {
 
   async sendToTokens(
     payload: ClientPushPayload,
-  ): Promise<{ sent: number; failed: number }> {
+  ): Promise<{ sent: number; failed: number; configured: boolean; reason?: string }> {
     const tokens = [...new Set(payload.tokens.map((t) => t.trim()).filter(Boolean))];
     if (tokens.length === 0) {
       this.logger.warn(`No FCM tokens for client ${payload.clientId} — skip push`);
-      return { sent: 0, failed: 0 };
+      return { sent: 0, failed: 0, configured: this.ready, reason: 'no_tokens' };
     }
 
     const title = payload.title;
@@ -86,10 +86,16 @@ export class FcmPushService implements OnModuleInit {
      * Deep-link fields remain on GET /notifications and socket `notification.new`.
      */
     if (!this.ready) {
+      const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
       this.logger.warn(
-        `[fcm-stub] NOT sent to device. client=${payload.clientId} title="${payload.title}" tokens=${tokens.length}. Configure FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_PATH.`,
+        `[fcm-not-configured] Push NOT delivered. env=${nodeEnv} client=${payload.clientId} title="${payload.title}" tokens=${tokens.length}. Set FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_PATH.`,
       );
-      return { sent: 0, failed: 0 };
+      return {
+        sent: 0,
+        failed: tokens.length,
+        configured: false,
+        reason: 'fcm_not_configured',
+      };
     }
 
     let sent = 0;
@@ -148,10 +154,15 @@ export class FcmPushService implements OnModuleInit {
         );
       }
 
-      return { sent, failed };
+      return { sent, failed, configured: true };
     } catch (err) {
       this.logger.error(`FCM send failed for client ${payload.clientId}`, err);
-      return { sent, failed: failed || tokens.length };
+      return {
+        sent,
+        failed: failed || tokens.length,
+        configured: true,
+        reason: 'fcm_send_error',
+      };
     }
   }
 

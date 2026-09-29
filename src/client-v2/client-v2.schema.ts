@@ -17,3 +17,22 @@ export const destinationsQuerySchema = z.object({
 });
 
 export type DestinationsQuery = z.infer<typeof destinationsQuerySchema>;
+
+export const catalogQuerySchema = z.object({
+  q: z.string().trim().min(1).max(120).optional(),
+  city: z.string().trim().min(1).max(64).optional(),
+  people: z.coerce.number().int().min(1).max(20).optional(),
+  date: z.string().trim().min(1).max(32).optional(),
+  from: z.string().trim().min(1).max(120).optional(),
+  to: z.string().trim().min(1).max(120).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(120).optional().default(48),
+});
+
+export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
+
+export const searchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(120),
+});
+
+export type SearchQuery = z.infer<typeof searchQuerySchema>;

@@ -194,7 +194,7 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
       subtitle: 'Culture · Red Square',
       badge: '-20%',
       imageUrl:
-        'https://images.unsplash.com/photo-1520106212299-d99c43f456d6?w=400',
+        'https://images.unsplash.com/photo-1513326738677-b964603b136d?w=800&q=80',
       lat: 55.7525,
       lng: 37.6231,
       isFree: false,
@@ -221,7 +221,7 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
       area: 'Lubyanka',
       aroundSection: 'under6',
       imageUrl:
-        'https://images.unsplash.com/photo-1526481280695-3c4694932771?w=400',
+        'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
       lat: 55.757,
       lng: 37.623,
       isFree: true,
@@ -293,7 +293,7 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
       homeRail: 'moscowNow',
       subtitle: 'Culture · Inside Moscow',
       imageUrl:
-        'https://images.unsplash.com/photo-1513326738677-b964603b136d?w=400',
+        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&q=80',
       lat: 55.7415,
       lng: 37.6208,
       isFree: false,
@@ -306,7 +306,7 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
       area: 'Kropotkinskaya',
       aroundSection: 'shortRide',
       imageUrl:
-        'https://images.unsplash.com/photo-1520106212299-d99c43f456d6?w=400',
+        'https://images.unsplash.com/photo-1556610961-2fecc5927173?w=800&q=80',
       lat: 55.7447,
       lng: 37.6055,
       isFree: true,
@@ -419,7 +419,7 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
       subtitle: 'Tours',
       description: 'Moscow River sightseeing',
       imageUrl:
-        'https://images.unsplash.com/photo-1526481280695-3c4694932771?w=400',
+        'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
       lat: 55.75,
       lng: 37.62,
       isFree: false,
@@ -540,22 +540,22 @@ export async function seedClientV2(prisma: PrismaClient): Promise<void> {
     daylight?: boolean;
     sortOrder: number;
   }> = [
-    { slug: 'nikulin', title: 'Nikulin Circus', tags: ['Family'], usePlaceholder: true, nearMe: true, today: true, sortOrder: 0 },
+    { slug: 'nikulin', title: 'Nikulin Circus', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80', nearMe: true, today: true, sortOrder: 0 },
     { slug: 'dream_island', title: 'Dream Island Park', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600', today: true, daylight: true, sortOrder: 1 },
     { slug: 'dolphinarium', title: 'Moscow Dolphinarium', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600', nearMe: true, today: true, sortOrder: 2 },
     { slug: 'bear_park', title: 'Bear Sanctuary', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1525382455947-f319bc05fb35?w=600', daylight: true, today: true, sortOrder: 3 },
-    { slug: 'tiger_park', title: 'Tiger Park', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1561731216-c3c7aac53d54?w=600', daylight: true, today: true, sortOrder: 4 },
+    { slug: 'tiger_park', title: 'Tiger Park', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=800&q=80', daylight: true, today: true, sortOrder: 4 },
     { slug: 'husky_park', title: 'Husky Park', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1547407139-3c921a66005c?w=600', daylight: true, sortOrder: 5 },
     { slug: 'zaryadye_flight', title: 'Zaryadye Flight', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1513889961551-628c1e5e2ee9?w=600', nearMe: true, today: true, daylight: true, sortOrder: 6 },
-    { slug: 'zaryadye_ice', title: 'Zaryadye Ice Cave', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1483664852095-d6cc68707026?w=600', nearMe: true, today: true, sortOrder: 7 },
-    { slug: 'cosmonautics', title: 'Cosmonautics Museum', tags: ['Family'], usePlaceholder: true, today: true, daylight: true, sortOrder: 8 },
+    { slug: 'zaryadye_ice', title: 'Zaryadye Ice Cave', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=800&q=80', nearMe: true, today: true, sortOrder: 7 },
+    { slug: 'cosmonautics', title: 'Cosmonautics Museum', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?w=800&q=80', today: true, daylight: true, sortOrder: 8 },
     { slug: 'planetarium', title: 'Moscow Planetarium', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?w=600', today: true, nearMe: true, sortOrder: 9 },
     { slug: 'zoo', title: 'Moscow Zoo', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?w=600', nearMe: true, today: true, daylight: true, sortOrder: 10 },
     { slug: 'moskvarium', title: 'Moskvarium', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?w=600', today: true, daylight: true, sortOrder: 11 },
-    { slug: 'nikulin_tsvetnoy', title: 'Nikulin Circus Tsvetnoy', tags: ['Family'], usePlaceholder: true, nearMe: true, today: true, sortOrder: 12 },
+    { slug: 'nikulin_tsvetnoy', title: 'Nikulin Circus Tsvetnoy', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80', nearMe: true, today: true, sortOrder: 12 },
     { slug: 'puppet', title: 'Puppet Theatre', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600', nearMe: true, sortOrder: 13 },
     { slug: 'durov', title: 'Durov Animal Theatre', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1503095396549-807759245b35?w=600', today: true, nearMe: true, sortOrder: 14 },
-    { slug: 'cosmos_pavilion', title: 'Cosmos Pavilion', tags: ['Family'], usePlaceholder: true, daylight: true, today: true, sortOrder: 15 },
+    { slug: 'cosmos_pavilion', title: 'Cosmos Pavilion', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?w=800&q=80', daylight: true, today: true, sortOrder: 15 },
     { slug: 'robostation', title: 'Robostation', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600', today: true, sortOrder: 16 },
     { slug: 'smile_park', title: 'Smile Park', tags: ['Family', 'Outside'], imageUrl: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=600', daylight: true, today: true, sortOrder: 17 },
     { slug: 'escape_quest', title: 'Escape Quest', tags: ['Family'], imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600', today: true, nearMe: true, sortOrder: 18 },

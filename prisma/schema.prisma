@@ -211,6 +211,7 @@ model StaffUser {
   emailsSent               EmailLog[]           @relation("EmailLogSentBy")
   bookingStaffLinks        BookingStaffLink[]   @relation("BookingStaffLinkStaff")
   bookingStaffLinksCreated BookingStaffLink[]   @relation("BookingStaffLinkCreatedBy")
+  masterDataImports        MasterDataImport[]   @relation("MasterDataImportUploadedBy")
 
   @@index([role])
   @@map("staff_users")
@@ -826,6 +827,27 @@ model StripeWebhookEvent {
 
   @@index([type])
   @@map("stripe_webhook_events")
+}
+
+/// Admin Excel / kitchen-JSON import session (preview → confirm → upsert).
+model MasterDataImport {
+  id           String    @id @default(uuid()) @db.Uuid
+  filename     String
+  sourceKind   String    @map("source_kind") // xlsx | kitchen_json
+  status       String    @default("previewed") // previewed | committed | failed
+  uploadedBy   String    @map("uploaded_by") @db.Uuid
+  summary      Json      @default("{}")
+  preview      Json      @default("{}")
+  report       Json?
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  committedAt  DateTime? @map("committed_at") @db.Timestamptz(6)
+
+  uploadedByUser StaffUser @relation("MasterDataImportUploadedBy", fields: [uploadedBy], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([status])
+  @@map("master_data_imports")
 }
 
 // ---------------------------------------------------------------------------

@@ -146,6 +146,14 @@ export class PaymentsService {
       stripePaymentLinkId = link.id;
       stripeLinkUrl = link.url;
     } else {
+      const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+      if (nodeEnv === 'production') {
+        throw AppError.serviceUnavailable(
+          'STRIPE_NOT_CONFIGURED',
+          'Stripe is not configured. Set STRIPE_SECRET_KEY before creating payment links in production.',
+        );
+      }
+      // Development-only explicit placeholder — never used when NODE_ENV=production.
       stripeLinkUrl = `https://pay.zeengo.local/dev/${payment.id}`;
     }
 

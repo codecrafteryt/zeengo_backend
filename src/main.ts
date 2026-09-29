@@ -25,6 +25,8 @@ function resolveCorsOrigins(): boolean | string[] {
   if (process.env.NODE_ENV !== 'production') {
     origins.add('http://localhost:5173');
     origins.add('http://127.0.0.1:5173');
+    origins.add('http://localhost:5174');
+    origins.add('http://127.0.0.1:5174');
     origins.add('http://localhost:4173');
     origins.add('http://127.0.0.1:4173');
   }
@@ -36,7 +38,12 @@ async function bootstrap() {
   writeSync(1, 'boot: starting nest\n');
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Allow browser SPA on another origin (Vite :5173/:5174) to read API responses
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,
