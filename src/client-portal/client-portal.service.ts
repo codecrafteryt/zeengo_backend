@@ -244,36 +244,75 @@ export class ClientPortalService {
   async itinerary(user: AuthPrincipal) {
     this.assertClient(user);
     const booking = await this.activeBookingForClient(user.sub);
-    const [items, dayPlans] = await Promise.all([
+    const [items, dayPlans, vendorBookings] = await Promise.all([
       this.prisma.itineraryItem.findMany({
         where: { bookingId: booking.id },
         orderBy: [{ dayNumber: 'asc' }, { sortOrder: 'asc' }, { startTime: 'asc' }],
         include: { vendor: true },
       }),
       this.prisma.bookingDayPlan.findMany({ where: { bookingId: booking.id } }),
+      this.prisma.vendorBooking.findMany({
+        where: { bookingId: booking.id },
+        include: { vendor: true },
+        orderBy: [{ serviceDate: 'asc' }, { createdAt: 'asc' }],
+      }),
     ]);
 
     const dayNumbers = new Set<number>();
     for (const item of items) dayNumbers.add(item.dayNumber);
     for (const plan of dayPlans) dayNumbers.add(plan.dayNumber);
+    for (const vb of vendorBookings) {
+      if (vb.itineraryItemId) continue;
+      dayNumbers.add(this.dayNumberFor(booking.arrivalDate, vb.serviceDate ?? booking.arrivalDate));
+    }
+    // Mirror admin ops: always expose stay nights so guests see the trip skeleton.
+    const stayDays = this.stayDayCount(booking.arrivalDate, booking.departureDate);
+    for (let d = 1; d <= stayDays; d += 1) dayNumbers.add(d);
+    if (dayNumbers.size === 0) dayNumbers.add(1);
+
     const plansByDay = new Map(dayPlans.map((p) => [p.dayNumber, p]));
 
     return {
       znCode: booking.znCode,
+      bookingId: booking.id,
+      arrivalDate: booking.arrivalDate?.toISOString().slice(0, 10) ?? null,
+      departureDate: booking.departureDate?.toISOString().slice(0, 10) ?? null,
+      packageName: booking.package?.name ?? null,
       days: [...dayNumbers]
         .sort((a, b) => a - b)
         .map((dayNumber) => {
           const dayItems = items.filter((i) => i.dayNumber === dayNumber);
           const plan = plansByDay.get(dayNumber);
+          const planDate =
+            plan?.planDate?.toISOString().slice(0, 10) ??
+            dayItems[0]?.itemDate?.toISOString().slice(0, 10) ??
+            this.dateForDayNumber(booking.arrivalDate, dayNumber);
+
+          const activities = dayItems.map((i) =>
+            this.mapClientActivity(i, booking.znCode),
+          );
+
+          // Vendor assignments from admin Ops that are not already itinerary rows.
+          for (const vb of vendorBookings) {
+            if (vb.itineraryItemId) continue;
+            const vbDay = this.dayNumberFor(
+              booking.arrivalDate,
+              vb.serviceDate ?? booking.arrivalDate,
+            );
+            if (vbDay !== dayNumber) continue;
+            activities.push(this.mapVendorBookingActivity(vb, booking.znCode, dayNumber));
+          }
+
           return {
             dayNumber,
-            planDate:
-              plan?.planDate?.toISOString().slice(0, 10) ??
-              dayItems[0]?.itemDate?.toISOString().slice(0, 10) ??
-              null,
+            planDate,
             carPlan: plan?.carPlan ?? null,
             notes: plan?.notes ?? null,
-            activities: dayItems.map((i) => this.mapClientActivity(i, booking.znCode)),
+            title:
+              plan?.carPlan?.trim() ||
+              plan?.notes?.trim() ||
+              (planDate ? `Day ${dayNumber} · ${planDate}` : `Day ${dayNumber}`),
+            activities,
           };
         }),
     };
@@ -400,6 +439,69 @@ export class ClientPortalService {
     };
   }
 
+  private mapVendorBookingActivity(
+    vb: {
+      id: string;
+      status: string;
+      details: string | null;
+      serviceDate: Date | null;
+      pax: number | null;
+      voucherCode: string | null;
+      vendor: { id: string; name: string; type: string; city: string | null };
+    },
+    znCode: string,
+    dayNumber: number,
+  ) {
+    const typeLabel = vb.vendor.type.replace(/_/g, ' ');
+    return {
+      id: `vb:${vb.id}`,
+      dayNumber,
+      itemDate: vb.serviceDate?.toISOString().slice(0, 10) ?? null,
+      startTime: null as string | null,
+      title: vb.vendor.name,
+      description: vb.details,
+      locationName: vb.vendor.city,
+      status: vb.status,
+      carPlan: null as string | null,
+      meetingPoint: null as string | null,
+      guideContact: null as string | null,
+      pdfUrl: null as string | null,
+      notes: vb.voucherCode ? `Voucher ${vb.voucherCode}` : null,
+      vendorId: vb.vendor.id,
+      vendorName: vb.vendor.name,
+      vendorType: vb.vendor.type,
+      qrPayload: JSON.stringify({
+        znCode,
+        vendorBookingId: vb.id,
+        title: vb.vendor.name,
+        type: typeLabel,
+      }),
+    };
+  }
+
+  /** Inclusive stay length from arrival → departure (min 1). Caps at 30 for safety. */
+  private stayDayCount(arrival: Date | null, departure: Date | null) {
+    if (!arrival) return 0;
+    if (!departure) return 1;
+    const a = Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth(), arrival.getUTCDate());
+    const d = Date.UTC(
+      departure.getUTCFullYear(),
+      departure.getUTCMonth(),
+      departure.getUTCDate(),
+    );
+    const nights = Math.floor((d - a) / 86400000);
+    return Math.min(30, Math.max(1, nights + 1));
+  }
+
+  private dateForDayNumber(arrival: Date | null, dayNumber: number): string | null {
+    if (!arrival) return null;
+    const d = new Date(
+      Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth(), arrival.getUTCDate()),
+    );
+    d.setUTCDate(d.getUTCDate() + Math.max(0, dayNumber - 1));
+    return d.toISOString().slice(0, 10);
+  }
+
   private daysLeft(departure: Date | null, today: Date) {
     if (!departure) return null;
     const d = Date.UTC(
@@ -411,8 +513,8 @@ export class ClientPortalService {
     return Math.max(0, Math.floor((d - t) / 86400000));
   }
 
-  private dayNumberFor(arrival: Date | null, today: Date) {
-    if (!arrival) return 1;
+  private dayNumberFor(arrival: Date | null, today: Date | null) {
+    if (!arrival || !today) return 1;
     const a = Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth(), arrival.getUTCDate());
     const t = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
     return Math.max(1, Math.floor((t - a) / 86400000) + 1);
