@@ -46,13 +46,18 @@ export type BookingDto = {
   arrivalDate: string | null;
   departureDate: string | null;
   partySize: number;
+  childrenCount: number;
   totalAmount: number;
   paidAmount: number;
   dueAmount: number;
   status: BookingStatus;
+  requestStatus: string;
+  source: string;
+  customerNotes: string | null;
+  rejectionReason: string | null;
   isVip: boolean;
   internalNotes: string | null;
-  createdBy: string;
+  createdBy: string | null;
   createdAt: string;
   updatedAt: string;
   client?: ClientSummaryDto;
@@ -162,13 +167,18 @@ export function mapBooking(
     arrivalDate: row.arrivalDate?.toISOString().slice(0, 10) ?? null,
     departureDate: row.departureDate?.toISOString().slice(0, 10) ?? null,
     partySize: row.partySize,
+    childrenCount: row.childrenCount ?? 0,
     totalAmount,
     paidAmount,
     dueAmount: Math.max(0, totalAmount - paidAmount),
     status: row.status,
+    requestStatus: row.requestStatus ?? 'confirmed',
+    source: row.source ?? 'staff',
+    customerNotes: row.customerNotes ?? null,
+    rejectionReason: row.rejectionReason ?? null,
     isVip: row.isVip,
     internalNotes: row.internalNotes,
-    createdBy: row.createdBy,
+    createdBy: row.createdBy ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     ...(row.client ? { client: mapClientSummary(row.client) } : {}),

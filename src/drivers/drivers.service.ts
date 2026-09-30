@@ -395,17 +395,25 @@ export class DriversService {
         return assignment;
       });
 
-      await this.prisma.itineraryItem.updateMany({
-        where: { bookingId: dto.bookingId },
-        data: { driverId: dto.driverId },
-      });
-
+      // Itinerary driverId is stamped only on accept — pending is not committed yet.
       const mapped = mapAssignment(row);
       await this.notifications.createAndFanout({
         staffId: driver.userId,
         type: 'assignment',
         title: `New assignment: ${booking.znCode}`,
         body: `${booking.client.fullName} — tap to accept or decline.`,
+        data: {
+          assignmentId: row.id,
+          bookingId: row.bookingId,
+          znCode: booking.znCode,
+          status: row.status,
+        },
+      });
+      await this.notifications.createAndFanout({
+        clientId: booking.clientId,
+        type: 'assignment',
+        title: 'Driver proposed',
+        body: `${driver.user.fullName} is waiting to confirm your trip.`,
         data: {
           assignmentId: row.id,
           bookingId: row.bookingId,
@@ -622,6 +630,14 @@ export class DriversService {
         where: { id: profile.id },
         data: { status: DriverStatus.available },
       });
+
+      // Close the booking when the live trip completes.
+      if (updated.booking.status === BookingStatus.active) {
+        await tx.booking.update({
+          where: { id: updated.bookingId },
+          data: { status: BookingStatus.completed },
+        });
+      }
 
       return updated;
     });

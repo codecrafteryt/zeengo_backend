@@ -8,20 +8,21 @@ export const OPEN_ASSIGNMENT_STATUSES: AssignmentStatus[] = [
   AssignmentStatus.active,
 ];
 
-/**
- * Driver may open / receive booking chat for these statuses —
- * includes completed so guest↔driver messaging works after trip start/end.
- */
-export const CHAT_DRIVER_ASSIGNMENT_STATUSES: AssignmentStatus[] = [
-  ...OPEN_ASSIGNMENT_STATUSES,
-  AssignmentStatus.completed,
-];
-
 /** Driver committed — show guest/ops as assigned. */
 export const COMMITTED_ASSIGNMENT_STATUSES: AssignmentStatus[] = [
   AssignmentStatus.accepted,
   AssignmentStatus.in_progress,
   AssignmentStatus.active,
+];
+
+/**
+ * Driver may open / receive booking chat after they accept —
+ * includes completed so guest↔driver messaging works through trip end.
+ * Pending is excluded until the driver confirms.
+ */
+export const CHAT_DRIVER_ASSIGNMENT_STATUSES: AssignmentStatus[] = [
+  ...COMMITTED_ASSIGNMENT_STATUSES,
+  AssignmentStatus.completed,
 ];
 
 /** Client app may show driver contact & trip status. */

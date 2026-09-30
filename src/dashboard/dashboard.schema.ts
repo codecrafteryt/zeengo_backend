@@ -16,6 +16,9 @@ export type DashboardSummaryDto = {
   urgentTasks: number;
   driversInField: number;
   revenueToday: number;
+  /** All-time paid payments (cash + stripe + other). */
+  revenueTotal: number;
+  cashTotal: number;
   todaysItinerary: number;
   itineraryProgress: number;
   unassignedClients: number;

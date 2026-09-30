@@ -115,12 +115,16 @@ export class FinanceService {
     const rows = await this.prisma.payment.findMany({
       where: {
         status: PaymentStatus.paid,
-        paidAt: { gte: since },
+        OR: [
+          { paidAt: { gte: since } },
+          { paidAt: null, createdAt: { gte: since } },
+        ],
       },
       select: {
         amount: true,
         method: true,
         paidAt: true,
+        createdAt: true,
       },
     });
 
@@ -141,8 +145,8 @@ export class FinanceService {
     const byDate = new Map(points.map((p) => [p.date, p]));
 
     for (const row of rows) {
-      if (!row.paidAt) continue;
-      const key = localDateKey(row.paidAt);
+      const when = row.paidAt ?? row.createdAt;
+      const key = localDateKey(when);
       const bucket = byDate.get(key);
       if (!bucket) continue;
       const amount = decimalToNumber(row.amount);

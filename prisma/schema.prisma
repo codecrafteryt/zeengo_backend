@@ -38,6 +38,21 @@ enum BookingStatus {
   cancelled
 }
 
+/** Customer request workflow — orthogonal to BookingStatus. */
+enum BookingRequestStatus {
+  pending
+  under_review
+  confirmed
+  rejected
+}
+
+/** How the booking entered the system. */
+enum BookingSource {
+  staff
+  customer_web
+  customer_app
+}
+
 enum PaymentMethod {
   cash
   stripe
@@ -164,6 +179,7 @@ enum NotificationType {
   system
   assignment
   program
+  booking_request
 }
 
 enum ActorType {
@@ -336,20 +352,27 @@ model Booking {
   arrivalDate     DateTime?     @map("arrival_date") @db.Date
   departureDate   DateTime?     @map("departure_date") @db.Date
   partySize       Int           @default(1) @map("party_size")
+  childrenCount   Int           @default(0) @map("children_count")
   totalAmount     Decimal       @default(0) @map("total_amount") @db.Decimal(12, 2)
   status          BookingStatus @default(active)
+  /** Customer-request lifecycle; staff bookings default to confirmed. */
+  requestStatus   BookingRequestStatus @default(confirmed) @map("request_status")
+  source          BookingSource @default(staff)
+  customerNotes   String?       @map("customer_notes")
+  rejectionReason String?       @map("rejection_reason")
+  idempotencyKey  String?       @unique @map("idempotency_key")
   isVip           Boolean       @default(false) @map("is_vip")
   vipActivatedAt  DateTime?     @map("vip_activated_at") @db.Timestamptz(6)
   vipActivatedBy  String?       @map("vip_activated_by") @db.Uuid
   internalNotes   String?       @map("internal_notes")
-  createdBy       String        @map("created_by") @db.Uuid
+  createdBy       String?       @map("created_by") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   client            Client             @relation(fields: [clientId], references: [id], onDelete: Restrict)
   package           Package            @relation(fields: [packageId], references: [id], onDelete: Restrict)
   vipActivatedByUser StaffUser?        @relation("BookingVipActivatedBy", fields: [vipActivatedBy], references: [id], onDelete: SetNull)
-  createdByUser     StaffUser          @relation("BookingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  createdByUser     StaffUser?         @relation("BookingCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   payments          Payment[]
   itineraryItems    ItineraryItem[]
   driverAssignments DriverAssignment[]
@@ -366,6 +389,8 @@ model Booking {
   staffLinks        BookingStaffLink[]
 
   @@index([status])
+  @@index([requestStatus])
+  @@index([source])
   @@index([clientId])
   @@index([arrivalDate])
   @@map("bookings")

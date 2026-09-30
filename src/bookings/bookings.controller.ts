@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { StaffRole } from '@prisma/client';
-import { Roles } from '../common/decorators/roles.decorator';
+import { Public, Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { zodPipe } from '../common/pipes/zod-validation.pipe';
@@ -18,7 +18,9 @@ import {
   createBookingSchema,
   createBookingNoteSchema,
   createChecklistItemSchema,
+  createCustomerBookingRequestSchema,
   listBookingsQuerySchema,
+  reviewCustomerBookingSchema,
   updateBookingSchema,
   updateChecklistItemSchema,
 } from './bookings.schema';
@@ -26,7 +28,9 @@ import type {
   CreateBookingDto,
   CreateBookingNoteDto,
   CreateChecklistItemDto,
+  CreateCustomerBookingRequestDto,
   ListBookingsQuery,
+  ReviewCustomerBookingDto,
   UpdateBookingDto,
   UpdateChecklistItemDto,
 } from './bookings.schema';
@@ -89,6 +93,16 @@ export class BookingsController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.bookingsService.update(id, body, user);
+  }
+
+  @Post(':id/request-review')
+  @Roles(...BOOKING_WRITE_ROLES)
+  reviewRequest(
+    @Param('id') id: string,
+    @Body(zodPipe(reviewCustomerBookingSchema)) body: ReviewCustomerBookingDto,
+    @CurrentUser() user: AuthPrincipal,
+  ) {
+    return this.bookingsService.reviewCustomerRequest(id, body, user);
   }
 
   @Get(':id/checklist')
@@ -157,5 +171,23 @@ export class BookingsController {
     @CurrentUser() user: AuthPrincipal,
   ) {
     return this.bookingsService.listVendorBookings(id, user);
+  }
+}
+
+
+@ApiTags('client-bookings')
+@Controller('client/bookings')
+export class ClientBookingsController {
+  constructor(private readonly bookingsService: BookingsService) {}
+
+  /** Public customer booking request (Option A). Optional client JWT. */
+  @Post('request')
+  @Public()
+  request(
+    @Body(zodPipe(createCustomerBookingRequestSchema))
+    body: CreateCustomerBookingRequestDto,
+    @CurrentUser() user: AuthPrincipal | undefined,
+  ) {
+    return this.bookingsService.createCustomerRequest(body, user ?? null);
   }
 }

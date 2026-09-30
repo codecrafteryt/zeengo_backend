@@ -141,13 +141,25 @@ async function main(): Promise<void> {
     });
   }
 
-  // Sample edit requests against existing bookings (idempotent via reason prefix)
+  // Sample edit requests against existing bookings (idempotent by booking+type+status+reason)
   const existingBookings = await prisma.booking.findMany({
     where: { status: 'active' },
     orderBy: { createdAt: 'asc' },
     take: 5,
     include: { client: true },
   });
+
+  // Strip legacy "[seed] " prefix from any older demo reasons.
+  const dirty = await prisma.editRequest.findMany({
+    where: { reason: { startsWith: '[seed]' } },
+    select: { id: true, reason: true },
+  });
+  for (const row of dirty) {
+    await prisma.editRequest.update({
+      where: { id: row.id },
+      data: { reason: row.reason.replace(/^\[seed\]\s*/i, '') },
+    });
+  }
 
   if (existingBookings.length > 0) {
     const samples: Array<{
@@ -177,7 +189,7 @@ async function main(): Promise<void> {
           : null,
       }),
       reason:
-        '[seed] Family needs one extra day in Moscow for shopping. Request to shift itinerary by 2 days.',
+        'Family needs one extra day in Moscow for shopping. Request to shift itinerary by 2 days.',
       status: 'pending',
     });
 
@@ -188,7 +200,7 @@ async function main(): Promise<void> {
         type: 'itinerary_change',
         originalValue: 'Four Seasons Moscow',
         requestedValue: 'St. Regis Moscow',
-        reason: '[seed] Prefer St. Regis for the last two nights.',
+        reason: 'Prefer St. Regis for the last two nights.',
         status: 'pending',
       });
     }
@@ -200,7 +212,7 @@ async function main(): Promise<void> {
         type: 'other',
         originalValue: 'Pickup 11:00',
         requestedValue: 'Pickup 14:30',
-        reason: '[seed] Flight delayed — please shift airport pickup.',
+        reason: 'Flight delayed — please shift airport pickup.',
         status: 'pending',
       });
     }
@@ -212,7 +224,7 @@ async function main(): Promise<void> {
         type: 'vip_upgrade',
         originalValue: JSON.stringify({ isVip: false }),
         requestedValue: JSON.stringify({ isVip: true }),
-        reason: '[seed] Request Zeen Rafeq VIP concierge for the stay.',
+        reason: 'Request Zeen Rafeq VIP concierge for the stay.',
         status: 'approved',
         reviewNotes: 'VIP package activated and client notified.',
       });
@@ -233,7 +245,7 @@ async function main(): Promise<void> {
                 .slice(0, 10)
             : null,
         }),
-        reason: '[seed] Extend stay by 5 nights for additional business meetings.',
+        reason: 'Extend stay by 5 nights for additional business meetings.',
         status: 'rejected',
         reviewNotes: 'Driver unavailable on requested extension dates; hotel fully booked.',
       });

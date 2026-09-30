@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { BookingsController } from './bookings.controller';
+import { BookingsController, ClientBookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  controllers: [BookingsController],
+  imports: [NotificationsModule],
+  controllers: [BookingsController, ClientBookingsController],
   providers: [BookingsService],
   exports: [BookingsService],
 })

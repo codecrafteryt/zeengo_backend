@@ -5,6 +5,7 @@ import {
   DriverStatus,
   EditRequestStatus,
   ItineraryItemStatus,
+  PaymentMethod,
   PaymentStatus,
   Prisma,
   SosStatus,
@@ -224,16 +225,21 @@ export class DashboardService {
    * Safe under high concurrency with Redis layer on top.
    */
   private async computeSummary(): Promise<DashboardSummaryDto> {
-    const today = this.todayUtc();
-    const tomorrow = this.addDays(today, 1);
+    // Match Finance "today" (local midnight) so Revenue today aligns with Finance → Today.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const unassignedWhere = this.unassignedBookingWhere(today);
+    const unassignedWhere = this.unassignedBookingWhere(this.todayUtc());
 
     const [
       activeClients,
       urgentTasks,
       driversInField,
       revenueAgg,
+      revenueTotalAgg,
+      cashTotalAgg,
       todaysItinerary,
       todaysDone,
       unassignedClients,
@@ -251,13 +257,27 @@ export class DashboardService {
       this.prisma.payment.aggregate({
         where: {
           status: PaymentStatus.paid,
-          paidAt: { gte: today, lt: tomorrow },
+          OR: [
+            { paidAt: { gte: today, lt: tomorrow } },
+            {
+              paidAt: null,
+              createdAt: { gte: today, lt: tomorrow },
+            },
+          ],
         },
         _sum: { amount: true },
       }),
-      this.prisma.itineraryItem.count({ where: { itemDate: today } }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.paid },
+        _sum: { amount: true },
+      }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.paid, method: PaymentMethod.cash },
+        _sum: { amount: true },
+      }),
+      this.prisma.itineraryItem.count({ where: { itemDate: this.todayUtc() } }),
       this.prisma.itineraryItem.count({
-        where: { itemDate: today, status: ItineraryItemStatus.done },
+        where: { itemDate: this.todayUtc(), status: ItineraryItemStatus.done },
       }),
       this.prisma.booking.count({ where: unassignedWhere }),
       this.prisma.editRequest.count({
@@ -277,6 +297,8 @@ export class DashboardService {
       urgentTasks,
       driversInField,
       revenueToday: decimalToNumber(revenueAgg._sum.amount),
+      revenueTotal: decimalToNumber(revenueTotalAgg._sum.amount),
+      cashTotal: decimalToNumber(cashTotalAgg._sum.amount),
       todaysItinerary,
       itineraryProgress,
       unassignedClients,
