@@ -30,4 +30,5 @@ RUN npm ci --omit=dev && npx prisma generate
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# Apply pending Prisma migrations before serving traffic (fixes prod schema drift).
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
