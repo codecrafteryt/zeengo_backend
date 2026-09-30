@@ -5,6 +5,8 @@ export type AuthPrincipal = {
   sub: string;
   type: 'staff' | 'client';
   role?: StaffRole;
+  /** Client ZN session — which booking this token is bound to. */
+  bookingId?: string;
 };
 
 export const CurrentUser = createParamDecorator(

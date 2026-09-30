@@ -21,6 +21,7 @@ type TokenPayload = {
   sub: string;
   type: 'staff' | 'client';
   role?: StaffRole;
+  bookingId?: string;
 };
 
 type FcmTokenEntry = {
@@ -241,6 +242,7 @@ export class AuthService {
     const tokens = await this.issueTokens({
       sub: booking.clientId,
       type: 'client',
+      bookingId: booking.id,
     });
 
     await this.audit.log({
@@ -397,7 +399,7 @@ export class AuthService {
       } catch {
         /* client session no longer depends on Redis */
       }
-      return this.issueClientSession(stored.sub);
+      return this.issueClientSession(stored.sub, stored.bookingId);
     }
 
     return this.refreshClientJwt(refreshToken);
@@ -470,18 +472,41 @@ export class AuthService {
     });
   }
 
-  private async issueClientSession(clientId: string) {
+  private async issueClientSession(clientId: string, bookingId?: string) {
     const client = await this.prisma.client.findFirst({
       where: { id: clientId, deletedAt: null },
     });
     if (!client) {
       throw AppError.unauthorized('Invalid or expired refresh token');
     }
-    return this.issueTokens({ sub: client.id, type: 'client' });
+
+    let boundBookingId = bookingId;
+    if (boundBookingId) {
+      const owned = await this.prisma.booking.findFirst({
+        where: {
+          id: boundBookingId,
+          clientId,
+          status: { in: ['active', 'completed'] },
+        },
+        select: { id: true },
+      });
+      if (!owned) boundBookingId = undefined;
+    }
+
+    return this.issueTokens({
+      sub: client.id,
+      type: 'client',
+      ...(boundBookingId ? { bookingId: boundBookingId } : {}),
+    });
   }
 
   private async refreshClientJwt(refreshToken: string) {
-    let decoded: { sub?: string; type?: string; typ?: string };
+    let decoded: {
+      sub?: string;
+      type?: string;
+      typ?: string;
+      bookingId?: string;
+    };
     try {
       decoded = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
@@ -494,7 +519,7 @@ export class AuthService {
       throw AppError.unauthorized('Invalid or expired refresh token');
     }
 
-    return this.issueClientSession(decoded.sub);
+    return this.issueClientSession(decoded.sub, decoded.bookingId);
   }
 
   private async issueTokens(payload: TokenPayload) {
@@ -503,6 +528,9 @@ export class AuthService {
         sub: payload.sub,
         type: payload.type,
         ...(payload.role ? { role: payload.role } : {}),
+        ...(payload.type === 'client' && payload.bookingId
+          ? { bookingId: payload.bookingId }
+          : {}),
       },
       {
         secret: this.config.getOrThrow<string>('JWT_SECRET'),
@@ -512,7 +540,12 @@ export class AuthService {
 
     if (payload.type === 'client') {
       const refreshToken = await this.jwtService.signAsync(
-        { sub: payload.sub, type: 'client', typ: 'refresh' },
+        {
+          sub: payload.sub,
+          type: 'client',
+          typ: 'refresh',
+          ...(payload.bookingId ? { bookingId: payload.bookingId } : {}),
+        },
         {
           secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
           expiresIn: this.config.get<string>('JWT_REFRESH_TTL', '30d') as '30d',

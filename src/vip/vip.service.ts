@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   BookingStatus,
-  ConversationType,
   EditRequestStatus,
   EditRequestType,
-  ParticipantType,
   Prisma,
-  SenderType,
   StaffRole,
   TaskPriority,
   TaskStatus,
@@ -18,6 +15,7 @@ import { AuditService } from '../common/audit.service';
 import { decimalToNumber } from '../common/decimal.util';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EditRequestsService } from '../edit-requests/edit-requests.service';
+import { ChatService } from '../chat/chat.service';
 import { mapEditRequest } from '../edit-requests/edit-requests.mapper';
 import { ActivateVipDto, EscalateVipDto, VipRequestDto } from './vip.schema';
 import {
@@ -66,6 +64,7 @@ export class VipService {
     private readonly audit: AuditService,
     private readonly editRequests: EditRequestsService,
     private readonly notifications: NotificationsService,
+    private readonly chat: ChatService,
   ) {}
 
   async overview(user: AuthPrincipal): Promise<VipOverviewDto> {
@@ -322,54 +321,21 @@ export class VipService {
       },
     });
 
-    // Team + booking support thread for @ops visibility
-    const conversation = await this.prisma.conversation.create({
-      data: {
-        type: ConversationType.booking_support,
-        bookingId: booking.id,
-        title: `@OpsManager VIP escalate ${booking.znCode}`,
-      },
-    });
+    // Reuse the single booking_support thread (no duplicate conversations)
+    const conversation = await this.chat.getOrCreateBookingSupport(
+      booking.id,
+      user,
+      `@OpsManager VIP escalate ${booking.znCode}`,
+    );
 
-    await this.prisma.conversationParticipant.create({
-      data: {
-        conversationId: conversation.id,
-        participantType: ParticipantType.staff,
-        participantKey: `staff:${user.sub}`,
-        staffId: user.sub,
-      },
-    });
-
-    // Add all ops managers / admins as participants
-    const seniors = await this.prisma.staffUser.findMany({
-      where: {
-        role: { in: [StaffRole.admin, StaffRole.ops_manager] },
-        isActive: true,
-        deletedAt: null,
-        id: { not: user.sub },
-      },
-      take: 20,
-    });
-    for (const s of seniors) {
-      await this.prisma.conversationParticipant.create({
-        data: {
-          conversationId: conversation.id,
-          participantType: ParticipantType.staff,
-          participantKey: `staff:${s.id}`,
-          staffId: s.id,
-        },
-      });
-    }
-
-    await this.prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderType: SenderType.staff,
-        senderStaffId: user.sub,
-        targetRole: 'admin',
+    await this.chat.createMessage(
+      conversation.id,
+      {
         body: `🚨 VIP ESCALATION\n${note}`,
+        senderRole: 'admin',
       },
-    });
+      user,
+    );
 
     await this.notifications.createAndFanout({
       staffRoles: [StaffRole.admin, StaffRole.ops_manager],
@@ -407,12 +373,23 @@ export class VipService {
       throw AppError.forbidden();
     }
 
-    const booking = await this.prisma.booking.findFirst({
-      where: { clientId: user.sub, status: BookingStatus.active },
-      orderBy: { createdAt: 'desc' },
-    });
+    const booking = user.bookingId
+      ? await this.prisma.booking.findFirst({
+          where: {
+            id: user.bookingId,
+            clientId: user.sub,
+            status: { in: [BookingStatus.active, BookingStatus.completed] },
+          },
+        })
+      : await this.prisma.booking.findFirst({
+          where: { clientId: user.sub, status: BookingStatus.active },
+          orderBy: { createdAt: 'desc' },
+        });
     if (!booking) {
       throw AppError.notFound('ACTIVE_BOOKING_NOT_FOUND', 'No active booking found');
+    }
+    if (booking.status !== BookingStatus.active) {
+      throw AppError.validation('VIP upgrade requires an active booking');
     }
     if (booking.isVip) {
       throw AppError.conflict('ALREADY_VIP', 'Booking is already VIP');

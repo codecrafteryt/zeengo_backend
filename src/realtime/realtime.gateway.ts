@@ -20,6 +20,7 @@ type JwtPayload = {
   sub: string;
   type: 'staff' | 'client';
   role?: StaffRole;
+  bookingId?: string;
 };
 
 function resolveWsCorsOrigin(): boolean | string[] {
@@ -84,6 +85,9 @@ export class RealtimeGateway
         sub: payload.sub,
         type: payload.type,
         role: payload.role,
+        ...(payload.type === 'client' && payload.bookingId
+          ? { bookingId: payload.bookingId }
+          : {}),
       };
 
       client.data.user = user;

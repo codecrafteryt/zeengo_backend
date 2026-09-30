@@ -13,7 +13,7 @@ NestJS REST + WebSocket API for Zeengo luxury travel operations (Russia focus). 
 ## Local setup
 
 ```bash
-cp .env.example .env
+# Configure secrets in `.env` (local file — keep gitignored)
 docker compose up -d   # Postgres :5432 + Redis :6379
 npm install
 npm run db:setup       # migrate + seed
@@ -52,7 +52,7 @@ Domain modules live under `src/` (`auth`, `bookings`, `payments`, `dashboard`, `
 
 ## Environment
 
-Copy `.env.example` and set at minimum:
+Use the local `.env` file (not committed). Set at minimum:
 
 - `DATABASE_URL`, `REDIS_URL`
 - `JWT_SECRET`, `JWT_REFRESH_SECRET`

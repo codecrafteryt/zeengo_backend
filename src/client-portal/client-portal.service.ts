@@ -14,7 +14,7 @@ export class ClientPortalService {
 
   async home(user: AuthPrincipal) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -141,7 +141,7 @@ export class ClientPortalService {
 
   async listTasks(user: AuthPrincipal, query: ListClientTasksQuery) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const { page, limit, skip, take } = toSkipTake(query);
 
     const statusFilter = query.status
@@ -233,7 +233,7 @@ export class ClientPortalService {
 
   async getTask(user: AuthPrincipal, taskId: string) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, bookingId: booking.id },
       include: { booking: true },
@@ -243,7 +243,7 @@ export class ClientPortalService {
   }
   async itinerary(user: AuthPrincipal) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const [items, dayPlans, vendorBookings] = await Promise.all([
       this.prisma.itineraryItem.findMany({
         where: { bookingId: booking.id },
@@ -320,7 +320,7 @@ export class ClientPortalService {
 
   async activity(user: AuthPrincipal, activityId: string) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const item = await this.prisma.itineraryItem.findFirst({
       where: { id: activityId, bookingId: booking.id },
       include: { vendor: true },
@@ -332,7 +332,7 @@ export class ClientPortalService {
   /** Admin booking notes surfaced to the guest as suggestions. */
   async suggestions(user: AuthPrincipal) {
     this.assertClient(user);
-    const booking = await this.activeBookingForClient(user.sub);
+    const booking = await this.bookingForClient(user);
     const rows = await this.prisma.bookingNote.findMany({
       where: { bookingId: booking.id },
       orderBy: { createdAt: 'desc' },
@@ -520,13 +520,27 @@ export class ClientPortalService {
     return Math.max(1, Math.floor((t - a) / 86400000) + 1);
   }
 
-  private async activeBookingForClient(clientId: string) {
+  private async bookingForClient(user: AuthPrincipal) {
+    // Prefer the booking bound to this ZN login session (JWT bookingId).
+    if (user.bookingId) {
+      const bound = await this.prisma.booking.findFirst({
+        where: {
+          id: user.bookingId,
+          clientId: user.sub,
+          status: { in: [BookingStatus.active, BookingStatus.completed] },
+        },
+        include: { client: true, package: true },
+      });
+      if (bound) return bound;
+    }
+
+    // Legacy tokens without bookingId — fall back to newest eligible booking.
     const booking = await this.prisma.booking.findFirst({
       where: {
-        clientId,
+        clientId: user.sub,
         status: { in: [BookingStatus.active, BookingStatus.completed] },
       },
-      orderBy: [{ status: 'asc' }, { arrivalDate: 'desc' }],
+      orderBy: [{ status: 'asc' }, { arrivalDate: 'desc' }, { createdAt: 'desc' }],
       include: { client: true, package: true },
     });
     if (!booking) throw AppError.notFound('BOOKING_NOT_FOUND', 'No booking for this client');

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  AssignmentStatus,
   BookingStatus,
   ConversationType,
   ParticipantType,
@@ -8,7 +7,7 @@ import {
   SenderType,
   StaffRole,
 } from '@prisma/client';
-import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
+import { CHAT_DRIVER_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
@@ -182,8 +181,9 @@ export class ChatService {
       include: {
         client: true,
         driverAssignments: {
-          where: { status: { in: OPEN_ASSIGNMENT_STATUSES } },
+          where: { status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES } },
           include: { driver: true },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -193,6 +193,7 @@ export class ChatService {
     let conversation = await this.prisma.conversation.findFirst({
       where: { bookingId, type: ConversationType.booking_support },
       include: conversationInclude,
+      orderBy: { createdAt: 'asc' },
     });
 
     if (!conversation) {
@@ -222,7 +223,9 @@ export class ChatService {
     });
     for (const s of opsStaff) keys.add(`staff:${s.id}`);
 
-    const driverUserId = booking.driverAssignments[0]?.driver.userId;
+    const driverUserId =
+      booking.driverAssignments[0]?.driver.userId ??
+      (await this.findChatDriverUserId(bookingId));
     if (driverUserId) keys.add(`staff:${driverUserId}`);
 
     await this.prisma.conversationParticipant.createMany({
@@ -307,6 +310,12 @@ export class ChatService {
       include: messageInclude,
     });
 
+    // Guest → Driver lane: make sure the assigned driver is on the thread
+    // even when the assignment is already completed / in progress.
+    if (user.type === 'client' && targetRole === 'driver') {
+      await this.ensureBookingDriverParticipant(conversationId);
+    }
+
     const payload = mapMessage(row);
     const rooms = await this.roomsForMessageChannel(conversationId, targetRole);
     this.realtime.emit('message.new', payload, rooms);
@@ -357,7 +366,10 @@ export class ChatService {
       bookingIds = bookings.map((b) => b.id);
     } else if (user.role === StaffRole.driver) {
       const assignments = await this.prisma.driverAssignment.findMany({
-        where: { driver: { userId: user.sub }, status: { in: OPEN_ASSIGNMENT_STATUSES } },
+        where: {
+          driver: { userId: user.sub },
+          status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
+        },
         select: { bookingId: true },
       });
       bookingIds = assignments.map((a) => a.bookingId);
@@ -484,7 +496,7 @@ export class ChatService {
       const assignments = await this.prisma.driverAssignment.findMany({
         where: {
           driver: { userId: user.sub },
-          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
         },
         select: { bookingId: true },
       });
@@ -641,7 +653,7 @@ export class ChatService {
       const assignment = await this.prisma.driverAssignment.findFirst({
         where: {
           bookingId: conv.bookingId,
-          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
           driver: { userId: user.sub },
         },
         select: { id: true },
@@ -658,6 +670,42 @@ export class ChatService {
           participantType: ParticipantType.staff,
           participantKey: `staff:${user.sub}`,
           staffId: user.sub,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  }
+
+  private async findChatDriverUserId(bookingId: string): Promise<string | null> {
+    const assignment = await this.prisma.driverAssignment.findFirst({
+      where: {
+        bookingId,
+        status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
+      },
+      include: { driver: { select: { userId: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return assignment?.driver.userId ?? null;
+  }
+
+  /** Join the booking's assigned driver onto the support thread (chat ACL). */
+  private async ensureBookingDriverParticipant(conversationId: string) {
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { bookingId: true },
+    });
+    if (!conv?.bookingId) return;
+
+    const driverUserId = await this.findChatDriverUserId(conv.bookingId);
+    if (!driverUserId) return;
+
+    await this.prisma.conversationParticipant.createMany({
+      data: [
+        {
+          conversationId,
+          participantType: ParticipantType.staff,
+          participantKey: `staff:${driverUserId}`,
+          staffId: driverUserId,
         },
       ],
       skipDuplicates: true,
@@ -684,7 +732,7 @@ export class ChatService {
       const assignment = await this.prisma.driverAssignment.findFirst({
         where: {
           bookingId,
-          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
           driver: { userId: user.sub },
         },
         select: { id: true },
@@ -710,9 +758,13 @@ export class ChatService {
     return channelForStaffRole(user.role);
   }
 
-  /** Staff only see their channel; clients see the full thread. */
+  /** Staff channel filter; clients see the full thread. Admin/ops see every lane. */
   private messageVisibilityWhere(user: AuthPrincipal): Prisma.MessageWhereInput {
     if (user.type !== 'staff' || !user.role) return {};
+    // Supervisors need guest↔driver / splizer traffic visible in Team Chat.
+    if (user.role === StaffRole.admin || user.role === StaffRole.ops_manager) {
+      return {};
+    }
     const channel = channelForStaffRole(user.role);
     const roles = staffRolesForChannel(channel);
     return {
@@ -755,7 +807,7 @@ export class ChatService {
       const assignment = await tx.driverAssignment.findFirst({
         where: {
           bookingId,
-          status: { in: OPEN_ASSIGNMENT_STATUSES },
+          status: { in: CHAT_DRIVER_ASSIGNMENT_STATUSES },
           driver: { userId: user.sub },
         },
         select: { id: true },
@@ -798,10 +850,11 @@ export class ChatService {
         continue;
       }
       if (p.participantType === ParticipantType.staff && p.staff) {
-        if (
-          !channel ||
-          channelForStaffRole(p.staff.role) === channel
-        ) {
+        const staffChannel = channelForStaffRole(p.staff.role);
+        const isSupervisor =
+          p.staff.role === StaffRole.admin ||
+          p.staff.role === StaffRole.ops_manager;
+        if (!channel || isSupervisor || staffChannel === channel) {
           rooms.push(`user:${p.staff.id}`);
         }
       }

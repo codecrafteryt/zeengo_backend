@@ -146,7 +146,7 @@ export class EditRequestsService {
       throw AppError.forbidden();
     }
 
-    const booking = await this.findActiveBookingForClient(user.sub);
+    const booking = await this.findBookingForClient(user);
     const originalValue = dto.originalValue ?? this.defaultOriginalValue(booking, dto.type);
 
     const row = await this.prisma.editRequest.create({
@@ -389,9 +389,23 @@ export class EditRequestsService {
     return undefined;
   }
 
-  private async findActiveBookingForClient(clientId: string) {
+  private async findBookingForClient(user: AuthPrincipal) {
+    if (user.bookingId) {
+      const bound = await this.prisma.booking.findFirst({
+        where: {
+          id: user.bookingId,
+          clientId: user.sub,
+          status: { in: [BookingStatus.active, BookingStatus.completed] },
+        },
+      });
+      if (bound) return bound;
+    }
+
     const booking = await this.prisma.booking.findFirst({
-      where: { clientId, status: BookingStatus.active },
+      where: {
+        clientId: user.sub,
+        status: { in: [BookingStatus.active, BookingStatus.completed] },
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!booking) {
