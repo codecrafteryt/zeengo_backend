@@ -744,6 +744,7 @@ export class ClientV2Service {
         where: {
           type: 'restaurant',
           isActive: true,
+          isPublished: true,
           deletedAt: null,
           ...(query.q
             ? {
@@ -862,6 +863,7 @@ export class ClientV2Service {
     const where = {
       type,
       isActive: true,
+      isPublished: true,
       deletedAt: null,
       ...(query.city
         ? { city: { contains: query.city, mode: 'insensitive' as const } }
@@ -889,6 +891,7 @@ export class ClientV2Service {
         where: {
           type,
           isActive: true,
+          isPublished: true,
           deletedAt: null,
           ...(query.q
             ? {
@@ -980,24 +983,28 @@ export class ClientV2Service {
         };
       });
 
-    const classes = this.carClasses()
-      .filter((c) => c.pax >= Math.min(people, 6))
-      .map((c) => ({
-        id: c.id,
-        kind: 'class' as const,
-        title: c.title,
-        subtitle: `${c.models} · up to ${c.pax} people`,
-        vehicle: c.models,
-        status: 'available' as const,
-        rating: null as number | null,
-        tripsCount: 0,
-        phone: null as string | null,
-        people,
-        date: query.date ?? null,
-        from: query.from ?? 'Your location in Moscow',
-        to: query.to ?? null,
-        priceLabel: `from ₽${c.hr.toLocaleString('en-US')}/hr`,
-      }));
+    const vehicleClasses = await this.prisma.vehicleClass.findMany({
+      where: { isActive: true, maxPax: { gte: Math.min(people, 6) } },
+      orderBy: [{ sortOrder: 'asc' }, { nameEn: 'asc' }],
+    });
+    const classes = vehicleClasses.map((c) => ({
+      id: c.key,
+      kind: 'class' as const,
+      title: c.nameEn,
+      subtitle: `${c.models ?? c.nameEn} · up to ${c.maxPax} people`,
+      vehicle: c.models,
+      status: 'available' as const,
+      rating: null as number | null,
+      tripsCount: 0,
+      phone: null as string | null,
+      people,
+      date: query.date ?? null,
+      from: query.from ?? 'Your location in Moscow',
+      to: query.to ?? null,
+      priceLabel: c.rateHourly
+        ? `from ₽${Number(c.rateHourly).toLocaleString('en-US')}/hr`
+        : null,
+    }));
 
     const data = [...live, ...classes];
     return {
@@ -1114,54 +1121,6 @@ export class ClientV2Service {
     if (n.startsWith('uservendor')) return false;
     if (n === 'driver' || n === 'test') return false;
     return true;
-  }
-
-  /** Prototype vehicle classes (aLo HTML transport catalog). */
-  private carClasses() {
-    return [
-      {
-        id: 'economy',
-        title: 'Economy sedan',
-        models: 'Hyundai Solaris · Kia Rio',
-        pax: 3,
-        hr: 1500,
-      },
-      {
-        id: 'comfort',
-        title: 'Comfort sedan',
-        models: 'Toyota Camry · Skoda Octavia',
-        pax: 3,
-        hr: 1900,
-      },
-      {
-        id: 'business',
-        title: 'Business class',
-        models: 'Mercedes E-Class · BMW 5',
-        pax: 3,
-        hr: 2900,
-      },
-      {
-        id: 'suv',
-        title: 'SUV',
-        models: 'Toyota Land Cruiser · Mercedes GLE',
-        pax: 4,
-        hr: 3800,
-      },
-      {
-        id: 'premium',
-        title: 'Premium',
-        models: 'Mercedes S-Class · BMW 7',
-        pax: 3,
-        hr: 5500,
-      },
-      {
-        id: 'minivan',
-        title: 'Minivan comfort',
-        models: 'Mercedes V-Class · Toyota Alphard',
-        pax: 6,
-        hr: 4200,
-      },
-    ];
   }
 
   private mapVendorAround(

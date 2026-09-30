@@ -525,6 +525,140 @@ export class ClientPortalService {
     return Math.max(1, Math.floor((t - a) / 86400000) + 1);
   }
 
+  /**
+   * Booking status page: the requested items and a timeline built only from
+   * events the system recorded (request, OPS review, payments, driver trip).
+   */
+  async bookingDetail(user: AuthPrincipal) {
+    this.assertClient(user);
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        clientId: user.sub,
+        ...(user.bookingId ? { id: user.bookingId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        package: { select: { name: true } },
+        itineraryItems: {
+          orderBy: [{ dayNumber: 'asc' }, { sortOrder: 'asc' }],
+          include: { vendor: { select: { id: true, type: true, images: true } } },
+        },
+        payments: { orderBy: { createdAt: 'asc' } },
+        driverAssignments: {
+          orderBy: { createdAt: 'asc' },
+          include: { driver: { include: { user: { select: { fullName: true } } } } },
+        },
+      },
+    });
+    if (!booking) throw AppError.notFound('BOOKING_NOT_FOUND', 'No booking for this client');
+
+    const reviews = await this.prisma.auditLog.findMany({
+      where: {
+        entity: 'booking',
+        entityId: booking.id,
+        action: {
+          in: [
+            'booking.customer_request_reviewed',
+            'booking.customer_request_confirmed',
+            'booking.customer_request_rejected',
+          ],
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { action: true, createdAt: true },
+    });
+
+    type Step = { key: string; at: string; title: string; detail?: string | null };
+    const timeline: Step[] = [];
+    const customer = booking.source !== 'staff';
+    timeline.push({
+      key: customer ? 'requested' : 'created',
+      at: booking.createdAt.toISOString(),
+      title: customer ? 'Request sent' : 'Booking created by ZEEN',
+      detail: booking.znCode,
+    });
+    for (const r of reviews) {
+      const status = r.action.replace('booking.customer_request_', '');
+      timeline.push({
+        key: status === 'reviewed' ? 'under_review' : status,
+        at: r.createdAt.toISOString(),
+        title:
+          status === 'confirmed'
+            ? 'Confirmed by ZEEN'
+            : status === 'rejected'
+              ? 'Request declined'
+              : 'ZEEN is reviewing your request',
+        detail: status === 'rejected' ? booking.rejectionReason : null,
+      });
+    }
+    for (const p of booking.payments) {
+      if (p.status === PaymentStatus.paid) {
+        timeline.push({
+          key: 'payment_paid',
+          at: (p.paidAt ?? p.updatedAt).toISOString(),
+          title: 'Payment received',
+          detail: `${decimalToNumber(p.amount).toLocaleString('en-US')} RUB`,
+        });
+      }
+    }
+    for (const a of booking.driverAssignments) {
+      const name = a.driver.user.fullName;
+      if (a.status === 'cancelled' || a.status === 'rejected') continue;
+      timeline.push({ key: 'driver_assigned', at: a.createdAt.toISOString(), title: 'Driver assigned', detail: name });
+      if (a.acceptedAt) timeline.push({ key: 'driver_accepted', at: a.acceptedAt.toISOString(), title: 'Driver confirmed', detail: name });
+      if (a.startedAt) timeline.push({ key: 'trip_started', at: a.startedAt.toISOString(), title: 'Trip started', detail: name });
+      if (a.completedAt) timeline.push({ key: 'trip_completed', at: a.completedAt.toISOString(), title: 'Trip completed', detail: name });
+    }
+    if (booking.status !== BookingStatus.active) {
+      timeline.push({
+        key: booking.status,
+        at: booking.updatedAt.toISOString(),
+        title: booking.status === BookingStatus.completed ? 'Trip completed' : 'Booking cancelled',
+      });
+    }
+    timeline.sort((a, b) => a.at.localeCompare(b.at));
+
+    const paid = booking.payments
+      .filter((p) => p.status === PaymentStatus.paid)
+      .reduce((sum, p) => sum + decimalToNumber(p.amount), 0);
+    const total = decimalToNumber(booking.totalAmount);
+
+    return {
+      bookingId: booking.id,
+      znCode: booking.znCode,
+      status: booking.status,
+      requestStatus: booking.requestStatus,
+      source: booking.source,
+      rejectionReason: booking.rejectionReason,
+      packageName: booking.package?.name ?? null,
+      arrivalDate: booking.arrivalDate?.toISOString().slice(0, 10) ?? null,
+      departureDate: booking.departureDate?.toISOString().slice(0, 10) ?? null,
+      partySize: booking.partySize,
+      childrenCount: booking.childrenCount ?? 0,
+      customerNotes: booking.customerNotes,
+      createdAt: booking.createdAt.toISOString(),
+      /** 0 until ZEEN sets the confirmed price. */
+      balance: { total, paid, due: Math.max(0, Math.round((total - paid) * 100) / 100) },
+      items: booking.itineraryItems.map((i) => {
+        const extras = (i.extras ?? {}) as Record<string, unknown>;
+        const imgs = Array.isArray(i.vendor?.images) ? (i.vendor!.images as unknown[]) : [];
+        return {
+          id: i.id,
+          kind: (extras.requestedKind as string | undefined) ?? i.vendor?.type ?? 'service',
+          title: i.title,
+          description: i.description,
+          date: i.itemDate?.toISOString().slice(0, 10) ?? null,
+          status: i.status,
+          vendorId: i.vendorId,
+          imageUrl: typeof imgs[0] === 'string' ? (imgs[0] as string) : null,
+          indicativePrice: (extras.indicativePrice as unknown) ?? null,
+          fromRequest: extras.source === 'customer_request',
+        };
+      }),
+      timeline,
+    };
+  }
+
   private async bookingForClient(user: AuthPrincipal) {
     // Prefer the booking bound to this ZN login session (JWT bookingId).
     if (user.bookingId) {

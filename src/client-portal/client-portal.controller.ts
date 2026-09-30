@@ -19,6 +19,11 @@ export class ClientPortalController {
     return this.clientPortalService.home(user);
   }
 
+  @Get('booking')
+  booking(@CurrentUser() user: AuthPrincipal) {
+    return this.clientPortalService.bookingDetail(user);
+  }
+
   @Get('itinerary')
   itinerary(@CurrentUser() user: AuthPrincipal) {
     return this.clientPortalService.itinerary(user);

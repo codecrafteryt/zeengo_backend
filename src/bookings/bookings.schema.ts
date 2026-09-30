@@ -52,6 +52,8 @@ export const createCustomerBookingRequestSchema = z.object({
           'restaurant',
           'guide',
           'car',
+          'transfer',
+          'train',
           'service',
         ]),
         vendorId: z.string().uuid().optional(),
@@ -59,6 +61,23 @@ export const createCustomerBookingRequestSchema = z.object({
         detail: z.string().max(500).optional(),
         serviceDate: z.string().date().optional(),
         quantity: z.coerce.number().int().min(1).optional().default(1),
+        /** Structured selections; the server prices them, the client never does. */
+        roomId: z.string().uuid().optional(),
+        checkIn: z.string().date().optional(),
+        checkOut: z.string().date().optional(),
+        rooms: z.coerce.number().int().min(1).max(10).optional(),
+        vehicleClassId: z.string().uuid().optional(),
+        transferService: z.enum(['airport', 'hourly', 'day']).optional(),
+        hours: z.coerce.number().int().min(1).max(24).optional(),
+        trainRouteId: z.string().uuid().optional(),
+        trainClass: z.string().max(60).optional(),
+        pax: z.coerce.number().int().min(1).max(45).optional(),
+        from: z.string().max(200).optional(),
+        to: z.string().max(200).optional(),
+        time: z
+          .string()
+          .regex(/^\d{2}:\d{2}$/)
+          .optional(),
       }),
     )
     .max(20)

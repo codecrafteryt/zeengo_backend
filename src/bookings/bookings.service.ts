@@ -42,6 +42,15 @@ import {
 import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { assertDriverAssignedToBooking } from '../common/booking-access.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  IndicativePrice,
+  nightsBetween,
+  transferPrice,
+  unitPrice,
+} from '../client-v2/indicative-price';
+
+type CustomerRequestItem =
+  CreateCustomerBookingRequestDto['requestedItems'][number];
 
 const bookingInclude = {
   client: true,
@@ -235,17 +244,9 @@ export class BookingsService {
       packageId = fallback.id;
     }
 
+    const resolvedItems: Awaited<ReturnType<BookingsService['resolveRequestedItem']>>[] = [];
     for (const item of dto.requestedItems ?? []) {
-      if (!item.vendorId) continue;
-      const vendor = await this.prisma.vendor.findFirst({
-        where: { id: item.vendorId, deletedAt: null, isActive: true },
-      });
-      if (!vendor) {
-        throw AppError.notFound(
-          'VENDOR_NOT_FOUND',
-          `Catalog item not found: ${item.title}`,
-        );
-      }
+      resolvedItems.push(await this.resolveRequestedItem(item, dto.partySize));
     }
 
     const source =
@@ -347,33 +348,22 @@ export class BookingsService {
         }));
 
       let day = 1;
-      for (const item of dto.requestedItems ?? []) {
-        let vendorId = item.vendorId ?? null;
-        if (vendorId) {
-          const vendor = await tx.vendor.findFirst({
-            where: { id: vendorId, deletedAt: null, isActive: true },
-          });
-          if (!vendor) vendorId = null;
-        }
-
+      for (const { item, vendorId, description, extras } of resolvedItems) {
+        const serviceDate = new Date(
+          item.serviceDate ?? item.checkIn ?? dto.arrivalDate,
+        );
         const itinerary = await tx.itineraryItem.create({
           data: {
             bookingId: created.id,
             dayNumber: day,
-            itemDate: item.serviceDate
-              ? new Date(item.serviceDate)
-              : new Date(dto.arrivalDate),
+            itemDate: serviceDate,
             title: item.title,
-            description: item.detail ?? null,
+            description,
             vendorId,
             status: 'pending',
             sortOrder: day - 1,
             notes: `Customer request · ${item.kind}`,
-            extras: {
-              requestedKind: item.kind,
-              quantity: item.quantity ?? 1,
-              source: 'customer_request',
-            },
+            extras,
           },
         });
 
@@ -383,11 +373,9 @@ export class BookingsService {
               bookingId: created.id,
               vendorId,
               itineraryItemId: itinerary.id,
-              serviceDate: item.serviceDate
-                ? new Date(item.serviceDate)
-                : new Date(dto.arrivalDate),
-              pax: dto.partySize,
-              details: item.detail ?? item.title,
+              serviceDate,
+              pax: item.pax ?? dto.partySize,
+              details: description ?? item.title,
               status: 'pending',
               createdBy: systemStaff.id,
             },
@@ -441,6 +429,115 @@ export class BookingsService {
     });
 
     return mapBooking(booking, 0);
+  }
+
+  /**
+   * Validates catalog references on a customer request item and computes its
+   * indicative price from the rate card. The price is stored for OPS on the
+   * itinerary item only; the booking total stays 0 until ZEEN sets it.
+   */
+  private async resolveRequestedItem(
+    item: CustomerRequestItem,
+    partySize: number,
+  ) {
+    const pax = item.pax ?? partySize;
+    const notFound = () =>
+      AppError.notFound('CATALOG_ITEM_NOT_FOUND', `Catalog item not found: ${item.title}`);
+    let vendorId: string | null = null;
+    let indicative: IndicativePrice | null = null;
+    const ref: Record<string, unknown> = {};
+    const lines: string[] = [];
+
+    if (item.vendorId) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: { id: item.vendorId, deletedAt: null, isActive: true },
+      });
+      if (!vendor) throw notFound();
+      vendorId = vendor.id;
+      const nights =
+        item.checkIn && item.checkOut ? nightsBetween(item.checkIn, item.checkOut) : undefined;
+      let rate: Prisma.Decimal | null = vendor.priceFrom;
+      let currency = vendor.priceCurrency;
+      if (item.roomId) {
+        const room = await this.prisma.hotelRoom.findFirst({
+          where: { id: item.roomId, vendorId: vendor.id, isActive: true },
+        });
+        if (!room) throw notFound();
+        ref.roomId = room.id;
+        ref.roomName = room.name;
+        lines.push(`Room: ${room.name}`);
+        if (room.rate) {
+          rate = room.rate;
+          currency = room.rateCurrency;
+        }
+      }
+      if (item.checkIn) lines.push(`Check-in ${item.checkIn}`);
+      if (item.checkOut) lines.push(`Check-out ${item.checkOut}`);
+      if (item.rooms && item.rooms > 1) lines.push(`${item.rooms} rooms`);
+      indicative = unitPrice(rate, currency, vendor.priceUnit, {
+        nights,
+        rooms: item.rooms,
+        pax,
+      });
+    }
+
+    if (item.vehicleClassId) {
+      const vc = await this.prisma.vehicleClass.findFirst({
+        where: { id: item.vehicleClassId, isActive: true },
+      });
+      if (!vc) throw notFound();
+      if (pax > vc.maxPax) {
+        throw AppError.validation(`${vc.nameEn} seats up to ${vc.maxPax} people`);
+      }
+      const service = item.transferService ?? 'airport';
+      ref.vehicleClassKey = vc.key;
+      ref.transferService = service;
+      lines.push(`${vc.nameEn} (${vc.models ?? 'or similar'})`);
+      if (service === 'hourly') lines.push(`${item.hours ?? 1} h with driver`);
+      if (service === 'day') lines.push('Full day with driver');
+      indicative = transferPrice(vc, service, item.hours ?? 1);
+    }
+
+    if (item.trainRouteId) {
+      const route = await this.prisma.trainRoute.findFirst({
+        where: { id: item.trainRouteId, isActive: true },
+      });
+      if (!route) throw notFound();
+      const classes = Array.isArray(route.classes) ? route.classes : [];
+      if (item.trainClass && !classes.includes(item.trainClass)) {
+        throw AppError.validation(`Unknown class for ${route.nameEn}`);
+      }
+      ref.trainRouteKey = route.key;
+      lines.push(`${route.fromStation} → ${route.toStation}`);
+      if (item.trainClass) lines.push(`Class: ${item.trainClass}`);
+      indicative = unitPrice(route.rateFrom, route.rateCurrency, 'person', { pax });
+    }
+
+    if (item.from) lines.push(`From: ${item.from}`);
+    if (item.to) lines.push(`To: ${item.to}`);
+    if (item.time) lines.push(`Time: ${item.time}`);
+    if (item.pax) lines.push(`${item.pax} guest${item.pax > 1 ? 's' : ''}`);
+    if (item.detail?.trim()) lines.push(item.detail.trim());
+
+    return {
+      item,
+      vendorId,
+      description: lines.join(' · ') || null,
+      extras: {
+        requestedKind: item.kind,
+        quantity: item.quantity ?? 1,
+        source: 'customer_request',
+        ...ref,
+        ...(item.checkIn ? { checkIn: item.checkIn } : {}),
+        ...(item.checkOut ? { checkOut: item.checkOut } : {}),
+        ...(item.rooms ? { rooms: item.rooms } : {}),
+        ...(item.hours ? { hours: item.hours } : {}),
+        ...(item.trainClass ? { trainClass: item.trainClass } : {}),
+        ...(item.time ? { time: item.time } : {}),
+        pax,
+        indicativePrice: indicative,
+      } as Prisma.InputJsonObject,
+    };
   }
 
   async reviewCustomerRequest(

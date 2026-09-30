@@ -1,22 +1,23 @@
 # Website catalog import report
 
-Generated from the local database after running `scripts/import-website-catalog.ts --commit` (2026-10-01).
-Pre-import backup: `prisma/data/snapshots/pre_website_catalog_import_20261001.sql` (vendors + discovery_places, data only).
+Generated from the local database after `scripts/import-website-catalog.ts --commit` converged (a further dry run reports 0 changes). 2026-10-01.
+Pre-import backup (local, gitignored): `prisma/data/snapshots/pre_website_catalog_import_20261001.sql`.
 
-Rules: existing non-empty fields are never overwritten; nothing is deleted; OPS still sees every row.
+Rules: existing non-empty fields are never overwritten; nothing is deleted; OPS still sees every row (hidden rows only have `is_published = false`).
+"Rate ~N RUB" values below 500 (hotels) / 100 (activities) are ratings in the Excel, not prices, and are not used.
 
 ## Totals
 
 | Type | Total | On website | With photos | With map pin | With "from" price | With Arabic name |
 |---|---|---|---|---|---|---|
-| activity | 397 | 384 | 118 | 1 | 205 | 370 |
+| activity | 440 | 427 | 119 | 1 | 204 | 371 |
 | guide | 25 | 25 | 0 | 0 | 12 | 12 |
-| hotel | 762 | 739 | 42 | 147 | 199 | 148 |
-| restaurant | 24 | 24 | 0 | 0 | 0 | 0 |
+| hotel | 694 | 668 | 42 | 147 | 161 | 148 |
+| restaurant | 49 | 49 | 0 | 0 | 0 | 0 |
 
 Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery places: 48
 
-## Moved from hotel list to activities (activity names on the Excel hotel sheets) (125)
+## Moved from the hotel list to activities / sights (169)
 
 - جولة مع مرشد في كرملين كازان  — Kazan
 - تجربة المطبخ التتاري في توغان أفيليم  — Kazan
@@ -36,21 +37,65 @@ Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery pl
 - فعاليات كازان  — Kazan
 - سنو موبايل  — Kazan
 - كارتينغ  — Kazan
+- Al-Marjani / Galeevskaya Mosque — Kazan
+- Annunciation Cathedral — Kazan
+- Apanaevskaya Mosque — Kazan
+- Bahetle (Tatar delicacies) — Kazan
+- Bauman Street (pedestrian) — Kazan
+- Blue Lakes Nature Reserve — Kazan
+- Central Market — Kazan
 - Chak-Chak Museum — Kazan
+- Chernoe Ozero Park — Kazan
+- Chistopol historical town — Kazan
 - Ekiyat Puppet Theatre — Kazan
 - Gabdulla Tukay Literary Museum — Kazan
+- Gorkinsko-Ometyevsky Forest — Kazan
+- Gorky Park — Kazan
+- Great Bolgar (UNESCO) — Kazan
+- Hermitage-Kazan Centre — Kazan
+- Innopolis (smart city) — Kazan
+- Kaban Lake Embankment — Kazan
+- Kamskoye Ustye (Volga–Kama confluence, gypsum mines) — Kazan
 - Kayum Nasyri Museum — Kazan
 - Kazan Aquapark Riviera Beach — Kazan
+- Kazan Family Center (Chasha) — Kazan
+- Kazan Federal University complex — Kazan
 - Kazan Kamal Theatre / Tatar Opera — Kazan
+- Kazan Kremlin (UNESCO) — Kazan
+- Kazan National Library (Ushkova house) — Kazan
+- Kazan Planetarium (KFU Observatory) — Kazan
 - Kazan State Circus — Kazan
+- Kazan Zoobotanical Garden (River Zambezi) — Kazan
+- KazanMall — Kazan
+- Koltso Shopping Mall — Kazan
+- Kremlin Embankment — Kazan
+- Kul Sharif Mosque — Kazan
+- Lyadskoy Garden — Kazan
+- Mardzhani Mosque — Kazan
+- MEGA Kazan — Kazan
+- Millennium Park — Kazan
 - Museum of Happy Childhood — Kazan
 - Museum of Islamic Culture — Kazan
 - Museum of Soviet Life — Kazan
 - National Museum of Tatarstan — Kazan
+- Nurulla Mosque — Kazan
+- Old Tatar Quarter — Kazan
+- Palace of Farmers — Kazan
+- Park House Kazan — Kazan
+- Peter & Paul Cathedral — Kazan
+- Raifa Bogoroditsky Monastery — Kazan
 - Riviera Water Park — Kazan
 - State Museum of Fine Arts of RT — Kazan
+- Suyumbike Tower — Kazan
+- Sviyaga Riviera embankment — Kazan
+- Sviyazhsk Island-Town — Kazan
+- Tandem Shopping Mall — Kazan
 - TATAR by Tubetey (cafe-museum) — Kazan
+- Temple of All Religions — Kazan
+- Tugan Avylym national complex — Kazan
 - URAM Extreme Park — Kazan
+- Volga (Locomotiv) beach & Volga bank — Kazan
+- Yelabuga historical town — Kazan
 - الكروز الملكي — Moscow
 - فعاليات موسكو — Moscow
 - خارج موسك فعاليات الاكشن — Moscow
@@ -144,7 +189,35 @@ Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery pl
 - Karting club Pro فعاليه الكارتينج — Sochi
 - Rosa Khutor فعاليات Krasnaya Polyana — Sochi
 
-## Hidden from the website (Excel headings / rows with no contact, address or map data) (36)
+## Moved from the hotel list to restaurants (Kazan sheet restaurant section) (25)
+
+- Alan Ash (Tatarskaya Usadba) — Kazan
+- Alan-Ash (Tugan Avylym) — Kazan
+- Cafe Azu — Kazan
+- Cafe Dastarkhan — Kazan
+- Cafe Kazanochka — Kazan
+- Cafe Khozur — Kazan
+- Cafe MEDINA — Kazan
+- Cafe Sultan Ay — Kazan
+- Cafe Syuyumbike — Kazan
+- Chaikhana Marhaba — Kazan
+- Chirem — Kazan
+- Domashnyaya Stolovaya (home canteen) — Kazan
+- ITLE Bistro — Kazan
+- ITLE Steak Cafe — Kazan
+- Kystybyy — Kazan
+- Morion (Millennium Panorama) — Kazan
+- Shaurma City — Kazan
+- Sofra Kazan — Kazan
+- Sofra Kebab — Kazan
+- TATAR by Tubetey (cafe-museum) — Kazan
+- Tatarskaya Usadba (Tatar Estate) — Kazan
+- Tatburger — Kazan
+- Tubetey (fast food) — Kazan
+- Tugan Avylym Restaurant — Kazan
+- Wok&Go — Kazan
+
+## Hidden from the website (Excel headings / rows with no contact, address or map data) (39)
 
 - تراث وتاريخ ودين  — Kazan
 - ترفيه وأطفال  — Kazan
@@ -152,12 +225,15 @@ Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery pl
 - حدائق وطبيعة  — Kazan
 - متاحف  — Kazan
 - تسوق  — Kazan
+- Destination  — Kazan
 - Full Day Trips Outside Kazan  — Kazan
 - KAZAN  — Kazan
 - Kazan Apartments  — Kazan
 - Kazan Attractions Database  — Kazan
 - Kazan Cottages & Resorts  — Kazan
 - Kazan Restaurants  — Kazan
+- Place  — Kazan
+- Restaurant  — Kazan
 - النمر السيريبي — Moscow
 - اماكن الهاسكي — Moscow
 - داخل موسكو — Moscow
@@ -445,7 +521,7 @@ Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery pl
 - Zipline — activity · Moscow
 - Zvenigorod — activity · Moscow
 
-## Possible Excel duplicates to review in OPS (same type, city and similar name) (141)
+## Possible Excel duplicates to review in OPS (same type, city and similar name) (135)
 
 - عرض سيرك كازان الحكومي  — activity · Kazan
 - Ekiyat Puppet Theatre  ⇄  عرض مسرح العرائس إكييات  — activity · Kazan
@@ -557,14 +633,8 @@ Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery pl
 - KAZAN  — hotel · Kazan
 - KAZAN  — hotel · Kazan
 - KAZAN  — hotel · Kazan
-- KAZAN  — hotel · Kazan
-- KAZAN  — hotel · Kazan
-- KAZAN  — hotel · Kazan
 - Kazan Cottages & Resorts  — hotel · Kazan
-- Kazan Family Center (Chasha)  ⇄  KAZAN  — hotel · Kazan
-- Kazan Kremlin (UNESCO)  ⇄  KAZAN  — hotel · Kazan
 - Kazan Restaurants  — hotel · Kazan
-- Kazan Zoobotanical Garden (River Zambezi)  ⇄  KAZAN  — hotel · Kazan
 - Kol Gali Resort & SPA 5★  ⇄  Kol Gali Resort & SPA — hotel · Kazan
 - القفز بالمظلة flyday  ⇄  Flyday القفز بالمظله — hotel · Moscow
 - Chekhoff Hotel Moscow Curio Collection by Hilton  ⇄  Chekhoff Hotel Moscow — hotel · Moscow

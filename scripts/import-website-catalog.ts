@@ -187,6 +187,30 @@ const ACTIVITY_WORDS =
 const LODGING_WORDS =
   /\b(hotel|resort|inn|apart|apartments?|hostel|suites?|lodge|residence|guest ?house|glamping|chalet|villa|sanatorium|spa hotel)\b|отель|гостиниц|فندق|منتجع|شاليه/i;
 
+const CUISINE_WORDS =
+  /\b(tatar|uzbek|grill|bistro|fast food|steak|caf[eé]|middle eastern|turkish|arab|georgian|burger|coffee|asian|italian|seafood|halal|kebab|european|russian|lebanese|indian|chinese|japanese|home cooking|fine dining|bakery|pizza|sushi|cuisine|oriental)\b|شرقية|عربية|تتارية|تركية|وجبات|مطبخ/i;
+
+/** Lowest believable "from" price; smaller "Rate ~N" values in the Excel are ratings. */
+const MIN_PRICE: Partial<Record<VendorType, number>> = { hotel: 500, activity: 100 };
+
+/**
+ * Some Excel hotel sheets (Kazan) also carry restaurant and sightseeing
+ * sections. There the "Address" column holds a cuisine or a Russian place
+ * name instead of a street address, which identifies the section.
+ */
+export function misfiledKind(
+  name: string,
+  notes: string | null,
+): 'heading' | 'restaurant' | 'sight' | null {
+  if (LODGING_WORDS.test(name)) return null;
+  const address = noteField(notes, /^address:\s*(.+)$/i);
+  if (!address || /\d/.test(address)) return null;
+  if (/^(russian name|cuisine)$/i.test(address)) return 'heading';
+  if (CUISINE_WORDS.test(address)) return 'restaurant';
+  if (CYRILLIC.test(address) && /\bsales:/i.test(notes ?? '')) return 'sight';
+  return null;
+}
+
 /** Rows imported as hotels whose name clearly describes an activity. */
 export function looksLikeActivity(name: string): boolean {
   return ACTIVITY_WORDS.test(name) && !LODGING_WORDS.test(name);
@@ -291,8 +315,15 @@ async function createVendor(
 async function enrichExisting(index: VendorIndex, rows: VendorRow[]) {
   for (const row of rows) {
     const names = splitNames(row.name);
-    const price = priceFromNotes(row.notes);
-    const address = noteField(row.notes, /^address:\s*(.+)$/i);
+    const misfiled =
+      (row.type === 'hotel' || row.dataSource?.includes('reclassified hotel→')) &&
+      !row.dataSource?.includes(SOURCE)
+        ? misfiledKind(row.name, row.notes)
+        : null;
+    const notePrice = misfiled ? null : priceFromNotes(row.notes);
+    const minPrice = MIN_PRICE[row.type] ?? 0;
+    const price = notePrice != null && notePrice >= minPrice ? notePrice : null;
+    const address = misfiled ? null : noteField(row.notes, /^address:\s*(.+)$/i);
     const patch = fill(row, {
       nameEn: names.en,
       nameAr: names.ar,
@@ -309,7 +340,35 @@ async function enrichExisting(index: VendorIndex, rows: VendorRow[]) {
               : null,
     });
     const data: Prisma.VendorUpdateInput = { ...patch };
-    if (row.type === 'hotel' && looksLikeActivity(row.name)) {
+    const cellAddress = noteField(row.notes, /^address:\s*(.+)$/i);
+    if (misfiled) {
+      if (row.priceFrom != null) data.priceFrom = null;
+      if (row.priceUnit != null) data.priceUnit = null;
+      if (row.address && row.address === cellAddress) data.address = null;
+    }
+    if (misfiled === 'heading') {
+      if (row.isPublished) {
+        data.isPublished = false;
+        log('Hidden from website (Excel heading or no contact details)', `\`${row.name}\` (${row.city ?? '—'})`);
+      }
+    } else if (misfiled === 'restaurant' && row.type !== 'restaurant') {
+      data.type = 'restaurant';
+      if (!row.category) data.category = cellAddress!.split('|')[0].trim();
+      data.dataSource = [row.dataSource, 'reclassified hotel→restaurant'].filter(Boolean).join('; ');
+      log('Reclassified hotel → restaurant', `\`${row.name}\` (${row.city ?? '—'})`);
+    } else if (misfiled === 'sight' && row.type === 'hotel') {
+      data.type = 'activity';
+      if (!row.category) data.category = 'Sights';
+      if (!row.nameRu) data.nameRu = cellAddress;
+      data.dataSource = [row.dataSource, 'reclassified hotel→activity'].filter(Boolean).join('; ');
+      log('Reclassified hotel → activity', `\`${row.name}\` (${row.city ?? '—'})`);
+    }
+    if (row.priceFrom != null && Number(row.priceFrom) < minPrice) {
+      data.priceFrom = null;
+      data.priceUnit = null;
+      log('Implausible prices dropped', `\`${row.name}\` (~${Number(row.priceFrom)} RUB)`);
+    }
+    if (!misfiled && row.type === 'hotel' && looksLikeActivity(row.name)) {
       data.type = 'activity';
       data.dataSource = [row.dataSource, 'reclassified hotel→activity']
         .filter(Boolean)
