@@ -1,0 +1,590 @@
+# Website catalog import report
+
+Generated from the local database after running `scripts/import-website-catalog.ts --commit` (2026-10-01).
+Pre-import backup: `prisma/data/snapshots/pre_website_catalog_import_20261001.sql` (vendors + discovery_places, data only).
+
+Rules: existing non-empty fields are never overwritten; nothing is deleted; OPS still sees every row.
+
+## Totals
+
+| Type | Total | On website | With photos | With map pin | With "from" price | With Arabic name |
+|---|---|---|---|---|---|---|
+| activity | 397 | 384 | 118 | 1 | 205 | 370 |
+| guide | 25 | 25 | 0 | 0 | 12 | 12 |
+| hotel | 762 | 739 | 42 | 147 | 199 | 148 |
+| restaurant | 24 | 24 | 0 | 0 | 0 | 0 |
+
+Hotel room types: 117 · Vehicle classes: 11 · Train routes: 18 · Discovery places: 48
+
+## Moved from hotel list to activities (activity names on the Excel hotel sheets) (125)
+
+- جولة مع مرشد في كرملين كازان  — Kazan
+- تجربة المطبخ التتاري في توغان أفيليم  — Kazan
+- تأجير يخت أو قارب في الفولغا  — Kazan
+- كروز مسائي مع موسيقى حية  — Kazan
+- باص الجولات السياحية في كازان  — Kazan
+- منصة المشاهدة في مركز العائلة  — Kazan
+- حصص في حديقة أورام للرياضات  — Kazan
+- كروز نهري في الفولغا وكازانكا  — Kazan
+- عرض مسرح العرائس إكييات  — Kazan
+- عجلة الملاهي حول العالم  — Kazan
+- حديقة كلاب الهاسكي والتزلج  — Kazan
+- عرض سيرك كازان الحكومي  — Kazan
+- رحلة نهرية إلى سفياجسك  — Kazan
+- المدينة المائية ريفييرا  — Kazan
+- جولة دباب رباعي ATV  — Kazan
+- فعاليات كازان  — Kazan
+- سنو موبايل  — Kazan
+- كارتينغ  — Kazan
+- Chak-Chak Museum — Kazan
+- Ekiyat Puppet Theatre — Kazan
+- Gabdulla Tukay Literary Museum — Kazan
+- Kayum Nasyri Museum — Kazan
+- Kazan Aquapark Riviera Beach — Kazan
+- Kazan Kamal Theatre / Tatar Opera — Kazan
+- Kazan State Circus — Kazan
+- Museum of Happy Childhood — Kazan
+- Museum of Islamic Culture — Kazan
+- Museum of Soviet Life — Kazan
+- National Museum of Tatarstan — Kazan
+- Riviera Water Park — Kazan
+- State Museum of Fine Arts of RT — Kazan
+- TATAR by Tubetey (cafe-museum) — Kazan
+- URAM Extreme Park — Kazan
+- الكروز الملكي — Moscow
+- فعاليات موسكو — Moscow
+- خارج موسك فعاليات الاكشن — Moscow
+- المدينه الماييه / Aquapark — Moscow
+- البجي العملاق Armata-tour — Moscow
+- مدينه الملاهي Dream island — Moscow
+- فعاليات الهلكيوبتر VIP Вертолётные технологии — Moscow
+- مسرح / باليه Bolshoi — Moscow
+- الفعاليات activites — Moscow
+- العسكريه Armata-tour — Moscow
+- تجربة الطيارTft. aero — Moscow
+- فعاليات/ألعاب فضائية Орион — Moscow
+- Aeronavt المنطاد — Moscow
+- Aeronuts المنطاد الحديث — Moscow
+- Aquafly فعاليات ألمانية — Moscow
+- Aquapark Karibiya المدينه المايه للعايلات — Moscow
+- armatatour فعاليات الاكشن — Moscow
+- Audi quattro Campفعاليات الدريفت — Moscow
+- Ballada فعاليات ركوب الخيل — Moscow
+- Club Give / المنطاد — Moscow
+- Club Give the Sky المنطاد — Moscow
+- Crossmania. Club فعاليات البجي العملاق — Moscow
+- Drifting فعاليات الدريفت — Moscow
+- ExpeditionClub فعاليات البجي + الهاسكي + الخيل — Moscow
+- Flow Moscow فعاليات الطبيعه — Moscow
+- Freestyle Extreme Park فعاليات التزلج من علي الجليد — Moscow
+- husky — Moscow
+- I-Fly فعاليات الطيران الداخلي — Moscow
+- Icg Extreme Team القفز الحر ( 6000) — Moscow
+- Klub Vozdukhoplavatel المنطاد — Moscow
+- Kvadr 24 فعاليات البجي العملاق + السنو موبايل — Moscow
+- MagicFlight المنطاد مانجا — Moscow
+- Master Panin Park فعاليات الباجي والاستعراضات الروسيه — Moscow
+- Miks Electro Karting فعاليه الكارتينج الاطفال — Moscow
+- Miks Karting الكارتينج — Moscow
+- Misty Park Amusement Park — Moscow
+- Moscow Circus السيرك البديل — Moscow
+- Moscow Helicopter فعاليات الهليكوبتر — Moscow
+- Moscow Paintball Federation فعاليات حرب — Moscow
+- Rkvadro فعاليات البجي العملاق — Moscow
+- SharM المنطاد — Moscow
+- Skazka مدينه الملاهي الكبري — Moscow
+- Territoriapoleta جميع فعاليات الطيران VIP — Moscow
+- Touch the sky فعاليات المنطاد — Moscow
+- Vodnoe taxi كروز نهري — Moscow
+- X-Fly فعاليات المائيه — Moscow
+- الفعاليات — Murmansk
+- 🐋 جولة تيريبيركا — Murmansk
+- BIG WOOD التزلج — Murmansk
+- husky — Murmansk
+- snowmobile الدباب الثلجي — Murmansk
+- فعاليات سانت — Saint Petersburg
+- فعاليات القفز – Валькирия — Saint Petersburg
+- رحلة نهرية – Нева Тревел — Saint Petersburg
+- فعاليات السنو موبايل والبجي – Kvadro Bum — Saint Petersburg
+- لسيرك الكبير – سانت بطرسبرغ The Great Circus — Saint Petersburg
+- تجربة قيادة الطائرات – Liner 737 — Saint Petersburg
+- رحلة يخت نهرية – Piter s vody — Saint Petersburg
+- فعاليات القفز بالمظلة – Skydiving — Saint Petersburg
+- فعاليات القفز المجنون 2026 – Sivoritsy — Saint Petersburg
+- فعاليات القفز – Asc Sivoritsy — Saint Petersburg
+- فعالية المنطاد – Hdb — Saint Petersburg
+- فعاليات القفز – Jumping Activities — Saint Petersburg
+- فعاليات الدريفت – Kultura Zanosa — Saint Petersburg
+- الرحلة النهرية – Northern Palmyra — Saint Petersburg
+- فعالية المنطاد – Polety na Share — Saint Petersburg
+- فعالية الكارتينغ – Primo Karting — Saint Petersburg
+- فعاليات حرب – Snaker — Saint Petersburg
+- فعاليات التجربة العسكرية VIP – ARMpoligon — Saint Petersburg
+- فعاليات الهليكوبتر + المنطاد – Vzletim — Saint Petersburg
+- فعاليات سوتشي — Sochi
+- فعاليات النهر والجبل — Sochi
+- فعاليات اكوا بارك Галактика — Sochi
+- فعالية ركوب الهاسكي Husky riding — Sochi
+- فعاليه تجربة السيرف Meduza Surf — Sochi
+- التجديف النهري فعاليه Rafting — Sochi
+- فعاليات سكاي بارك Skypark — Sochi
+- السيرك الروسي سوتشي Sochi Circus — Sochi
+- فعالية التزلج الهليكوبتر Sochi Heliski — Sochi
+- أكوا بارك أوكتيابرسكي Water park — Sochi
+- الكارتينج علي البحر X-ti Karting — Sochi
+- فعاليات المدينه ( ادلر المطار + البحر + نهايه النهر — Sochi
+- فعاليات البجي + الموتسيكلات Enduro — Sochi
+- تجربة الألبكة Alpaca Park — Sochi
+- فعالية المنطاد Balloon — Sochi
+- فعاليات الاطفال FunGrad — Sochi
+- فعاليه الهاسكي Husky Khutor — Sochi
+- فعاليات ريفيرا Riviera — Sochi
+- عروض الدلافين Sochi dolphinarium — Sochi
+- فعاليه اليخت Yacht Moremaniya — Sochi
+- Karting club Pro فعاليه الكارتينج — Sochi
+- Rosa Khutor فعاليات Krasnaya Polyana — Sochi
+
+## Hidden from the website (Excel headings / rows with no contact, address or map data) (36)
+
+- تراث وتاريخ ودين  — Kazan
+- ترفيه وأطفال  — Kazan
+- فعاليات كازان  — Kazan
+- حدائق وطبيعة  — Kazan
+- متاحف  — Kazan
+- تسوق  — Kazan
+- Full Day Trips Outside Kazan  — Kazan
+- KAZAN  — Kazan
+- Kazan Apartments  — Kazan
+- Kazan Attractions Database  — Kazan
+- Kazan Cottages & Resorts  — Kazan
+- Kazan Restaurants  — Kazan
+- النمر السيريبي — Moscow
+- اماكن الهاسكي — Moscow
+- داخل موسكو — Moscow
+- فعاليات موسكو — Moscow
+- داتا ارقام المزارع — Moscow
+- خارج موسك فعاليات الاكشن — Moscow
+- الدب الروسي / TOM — Moscow
+- الفعاليات activites — Moscow
+- Shukolovo Hotel — Moscow
+- Tseleevo Golf Club — Moscow
+- الفعاليات — Murmansk
+- Арктический вираж — Murmansk
+- اكواخ مورمانسك — Murmansk
+- Chastnyy Dom Uyutnyy Na Beregu Ozera — Murmansk
+- Kirvosk — Murmansk
+- Kirvosk — Murmansk
+- فعاليات سانت — Saint Petersburg
+- فعاليات سوتشي — Sochi
+- فعاليات النهر والجبل — Sochi
+- الشقق الفندقيه علي البحر — Sochi
+- فعاليات المدينه ( ادلر المطار + البحر + نهايه النهر — Sochi
+- اكواخ سوتشي ( جبل + بحر + نهر ) — Sochi
+- الشقق الفندقيه Krasna Polyana — Sochi
+- Rosa Khutor فعاليات Krasnaya Polyana — Sochi
+
+## Created from the prototype (259)
+
+- Коттедж — hotel · Moscow
+- Минима Китай-город — hotel · Moscow
+- Аквамарин by Zont Hotel Group — hotel · Moscow
+- 1 Art hotel — hotel · Moscow
+- 1st Arbat Hotel Chistoprudny — hotel · Moscow
+- Adagio Moscow Paveletskaya — hotel · Moscow
+- Akvarel — hotel · Moscow
+- ApeironSpace — hotel · Moscow
+- Ararat Park Hotel Moscow — hotel · Moscow
+- Ararat Park Hyatt Moscow — hotel · Moscow
+- Arbat House — hotel · Moscow
+- Arbat Stars — hotel · Moscow
+- Areal — hotel · Moscow
+- Arium by Brosko — hotel · Moscow
+- Assambleya Nikitskaya — hotel · Moscow
+- Avita Krasnyie Vorota — hotel · Moscow
+- Azimut Hotel Aerostar — hotel · Moscow
+- Bagration — hotel · Moscow
+- Barin Residence Grand&Myasnitskaya — hotel · Moscow
+- Bouchee — hotel · Moscow
+- Boutique Rooms — hotel · Moscow
+- Business Lounge Hotel — hotel · Moscow
+- Cappuccino — hotel · Moscow
+- Chekhoff Hotel Moscow — hotel · Moscow
+- Chekhoff Hotel Moscow Curio Collection by Hilton — hotel · Moscow
+- Chemodanov — hotel · Moscow
+- City Comfort at Kitay-Gorod — hotel · Moscow
+- Cosmos Smart Moscow Dubininskaya Hotel — hotel · Moscow
+- Country Resort — hotel · Moscow
+- D Hotel — hotel · Moscow
+- De Paris — hotel · Moscow
+- Diamond Apart-Hotel — hotel · Moscow
+- ENZO Hotel Moscow — hotel · Moscow
+- Ermitage — hotel · Moscow
+- Farfalle — hotel · Moscow
+- Fortis — hotel · Moscow
+- Garden Ring Hotel — hotel · Moscow
+- Gesten — hotel · Moscow
+- Gipnoz — hotel · Moscow
+- Gostinitsa Arbat — hotel · Moscow
+- Grada — hotel · Moscow
+- Grand Wellness Hotel & SPA — hotel · Moscow
+- Guest Cottage in Yeremino — hotel · Moscow
+- Hampton by Hilton Rogozhsky Val — hotel · Moscow
+- Hitrovka — hotel · Moscow
+- Hotel Bega — hotel · Moscow
+- Hotel Club — hotel · Moscow
+- Hotel Maroseyka 2/15 — hotel · Moscow
+- Hotel Moscow Krasnoselskaya — hotel · Moscow
+- Hotel Wellion Paveletskaya — hotel · Moscow
+- Hyatt Regency Moscow Petrovsky Park — hotel · Moscow
+- Ibis Moscow Centre Bakhrushina — hotel · Moscow
+- Ibis Moscow Dynamo — hotel · Moscow
+- JackPot Energy — hotel · Moscow
+- Kamergersky — hotel · Moscow
+- Lesnaya by Safmar — hotel · Moscow
+- Loft Hotel H11 — hotel · Moscow
+- Maidens Hotel Moscow — hotel · Moscow
+- Mamaison All-Suites SPA Hotel Pokrovka Moscow — hotel · Moscow
+- Marco Polo by Moss Hospitality — hotel · Moscow
+- Markell — hotel · Moscow
+- Marriott Imperial Plaza — hotel · Moscow
+- Medea — hotel · Moscow
+- Mercure Moscow Baumanskaya — hotel · Moscow
+- Metallurg — hotel · Moscow
+- MetaMoscow — hotel · Moscow
+- Movenpick Moscow Taganskaya — hotel · Moscow
+- MYS Boutique Hotel — hotel · Moscow
+- Naumov apart-hotel — hotel · Moscow
+- Noviy Bereg — hotel · Moscow
+- Old Moscow — hotel · Moscow
+- Otel' Vellion Sukharevskiy — hotel · Moscow
+- P17 Hotel — hotel · Moscow
+- Pana Moscow — hotel · Moscow
+- Parradosso Hotel — hotel · Moscow
+- Pekin — hotel · Moscow
+- People Red Square — hotel · Moscow
+- Peter 1 Hotel — hotel · Moscow
+- Petroff Palace Boutique Hotel — hotel · Moscow
+- Petroff Road Palace Hotel — hotel · Moscow
+- Petrovka 26 Boutique Hotel — hotel · Moscow
+- Pokrovka 6 Hotel — hotel · Moscow
+- PR Myasnitsky — hotel · Moscow
+- President Hotel — hotel · Moscow
+- Radisson Blu Belorusskaya — hotel · Moscow
+- Radisson Blu Leninsky Prospect — hotel · Moscow
+- Radisson, Zavidovo — hotel · Moscow
+- Red Brick — hotel · Moscow
+- Regul — hotel · Moscow
+- Regul Boutique Hotel — hotel · Moscow
+- Richter Hotel — hotel · Moscow
+- Rosso Riva — hotel · Moscow
+- Russo-Balt Hotel Moscow — hotel · Moscow
+- Sadovnicheskaya Hotel — hotel · Moscow
+- Sadu — hotel · Moscow
+- Safmar Aurora Luxe — hotel · Moscow
+- Safmar Avrora Lux — hotel · Moscow
+- Safmar Palace Moscow — hotel · Moscow
+- Safmar Tverskaya Moskva — hotel · Moscow
+- Senator — hotel · Moscow
+- Soluxe Hotel Moscow — hotel · Moscow
+- Sretenskaya — hotel · Moscow
+- Stella di Mosca Hotel & Residences — hotel · Moscow
+- Stoleshnikov — hotel · Moscow
+- Sunflower Avenue Hotel Moscow, by Zont Hotel Group — hotel · Moscow
+- Suschevsky Safmar — hotel · Moscow
+- Swissotel Krasnye Holmy — hotel · Moscow
+- Tchaikovsky — hotel · Moscow
+- Tesla — hotel · Moscow
+- Tseleevo Club & Resort — hotel · Moscow
+- Turris Hotel Lubyansky — hotel · Moscow
+- Turris Hotel Tagansky — hotel · Moscow
+- Turris Hotel Tverskaya — hotel · Moscow
+- Venice in my heart — hotel · Moscow
+- Vertical Boutique Taganskaya — hotel · Moscow
+- Volga — hotel · Moscow
+- Vorontsovskiy — hotel · Moscow
+- Vremena Goda Arbatskaya — hotel · Moscow
+- Winterfell Chistye Prudy — hotel · Moscow
+- Yakimanka 38 Hotel — hotel · Moscow
+- Bakhroma — restaurant · Moscow
+- Beluga — restaurant · Moscow
+- Bosco Cafe — restaurant · Moscow
+- Bublik — restaurant · Moscow
+- Cafe Pushkin — restaurant · Moscow
+- Central Market — restaurant · Moscow
+- Chaihona No.1 — restaurant · Moscow
+- Depo.Moscow — restaurant · Moscow
+- Dr. Zhivago — restaurant · Moscow
+- Gayane’s — restaurant · Moscow
+- Ruski — restaurant · Moscow
+- Sakhalin — restaurant · Moscow
+- Shesh-Besh — restaurant · Moscow
+- Sixty — restaurant · Moscow
+- Stolovaya No.57 — restaurant · Moscow
+- Turandot — restaurant · Moscow
+- Ugolek — restaurant · Moscow
+- Uzbekistan — restaurant · Moscow
+- Voronezh — restaurant · Moscow
+- Business interpreter — guide · Moscow
+- City guide · full day — guide · Moscow
+- City guide · half day — guide · Moscow
+- Clinic translator — guide · Moscow
+- Day trip guide — guide · Moscow
+- Family & kids guide — guide · Moscow
+- Guide + car with driver — guide · Moscow
+- Guide + photographer — guide · Moscow
+- Guide in Saint Petersburg — guide · Moscow
+- Kremlin & Armoury — guide · Moscow
+- Museum guide — guide · Moscow
+- Shopping assistant — guide · Moscow
+- Abramtsevo — activity · Moscow
+- Alpaca Farm — activity · Moscow
+- Anvio VR — activity · Moscow
+- Aquapark — activity · Moscow
+- Arkhangelskoye — activity · Moscow
+- Bike Rental — activity · Moscow
+- Bison Reserve — activity · Moscow
+- Boeing 737 Simulator — activity · Moscow
+- Bolshoi Theatre — activity · Moscow
+- Borodino Panorama — activity · Moscow
+- Brewery Museum Tour — activity · Moscow
+- Buggy Off-Road — activity · Moscow
+- Bunker-42 — activity · Moscow
+- Cessna Flight — activity · Moscow
+- Chocolate Factory — activity · Moscow
+- Climbing Wall — activity · Moscow
+- Cooking Class — activity · Moscow
+- Cosmonautics Museum — activity · Moscow
+- Cosmos Pavilion — activity · Moscow
+- Crocus Oceanarium — activity · Moscow
+- Dolphinarium — activity · Moscow
+- Dream Island Park — activity · Moscow
+- Drift Experience — activity · Moscow
+- Durov Animal Theatre — activity · Moscow
+- Escape Quest — activity · Moscow
+- Ethnomir Park — activity · Moscow
+- Falconry Show — activity · Moscow
+- Fishing Trip — activity · Moscow
+- Flyboard — activity · Moscow
+- Folk Show — activity · Moscow
+- Football Match — activity · Moscow
+- Garage Museum — activity · Moscow
+- Gastro Tour — activity · Moscow
+- Gorky Park — activity · Moscow
+- GUM Ice Rink — activity · Moscow
+- Helicopter Tour — activity · Moscow
+- Horse Club — activity · Moscow
+- Hot Air Balloon — activity · Moscow
+- Husky Park — activity · Moscow
+- Ice Hockey Match — activity · Moscow
+- Ice Show — activity · Moscow
+- Imperia Tower — activity · Moscow
+- Izmailovo Kremlin — activity · Moscow
+- Jet Ski — activity · Moscow
+- Jewish Museum — activity · Moscow
+- Karibiya Aquapark — activity · Moscow
+- Kayaking — activity · Moscow
+- Klin — activity · Moscow
+- Kolomenskoye — activity · Moscow
+- Kolomna Kremlin — activity · Moscow
+- Kremlin Armoury — activity · Moscow
+- Kremlin Ballet — activity · Moscow
+- Kremlin Cathedral Square — activity · Moscow
+- Kuskovo Estate — activity · Moscow
+- Meet the Bear — activity · Moscow
+- Metro Tour — activity · Moscow
+- Military Experience — activity · Moscow
+- Moreon Aquapark — activity · Moscow
+- Moscow Planetarium — activity · Moscow
+- Moscow Zoo — activity · Moscow
+- Mosfilm Studios — activity · Moscow
+- Nebo Deck — activity · Moscow
+- New Jerusalem — activity · Moscow
+- Night Bus Tour — activity · Moscow
+- Nikulin Circus — activity · Moscow
+- Nikulin Circus Tsvetnoy — activity · Moscow
+- Novodevichy Convent — activity · Moscow
+- Ostankino Glass Floor — activity · Moscow
+- Ostankino Tower — activity · Moscow
+- Paintball — activity · Moscow
+- Paleontology Museum — activity · Moscow
+- Panorama 360 — activity · Moscow
+- Paragliding — activity · Moscow
+- Pharmacy Museum — activity · Moscow
+- Puppet Theatre — activity · Moscow
+- Pushkin Museum — activity · Moscow
+- Radisson River Cruise — activity · Moscow
+- River Cruise — activity · Moscow
+- Robostation — activity · Moscow
+- Rooftop Terrace — activity · Moscow
+- Rope Park — activity · Moscow
+- Russian Banya — activity · Moscow
+- Sanduny Banya — activity · Moscow
+- Segway Tour — activity · Moscow
+- Sergiev Posad — activity · Moscow
+- Seventh Heaven — activity · Moscow
+- Shooting Range — activity · Moscow
+- Ski Resort — activity · Moscow
+- Skydiving — activity · Moscow
+- Snow Tubing — activity · Moscow
+- Sports Car Drive — activity · Moscow
+- St Basil Cathedral — activity · Moscow
+- Sun of Moscow Wheel — activity · Moscow
+- SUP Paddleboarding — activity · Moscow
+- Tiger Park — activity · Moscow
+- Tretyakov Gallery — activity · Moscow
+- Tsaritsyno Palace — activity · Moscow
+- Tula — activity · Moscow
+- VDNKh Ice Rink — activity · Moscow
+- VDNKh Tour — activity · Moscow
+- Victory Museum — activity · Moscow
+- Vladimir and Suzdal — activity · Moscow
+- Wind Tunnel — activity · Moscow
+- Yacht Charter — activity · Moscow
+- Zaryadye Flight — activity · Moscow
+- Zaryadye Ice Cave — activity · Moscow
+- Zipline — activity · Moscow
+- Zvenigorod — activity · Moscow
+
+## Possible Excel duplicates to review in OPS (same type, city and similar name) (141)
+
+- عرض سيرك كازان الحكومي  — activity · Kazan
+- Ekiyat Puppet Theatre  ⇄  عرض مسرح العرائس إكييات  — activity · Kazan
+- URAM Extreme Park  ⇄  حصص في حديقة أورام للرياضات  — activity · Kazan
+- الكروز الملكي  ⇄  الكروز الملكي — activity · Moscow
+- المدينه الماييه / Aquapark  ⇄  المدينه الماييه / Aquapark — activity · Moscow
+- البجي العملاق Armata-tour  ⇄  البجي العملاق Armata-tour — activity · Moscow
+- البجي العملاق Armata-tour  ⇄  العسكريه Armata-tour — activity · Moscow
+- البجي العملاق Armata-tour  ⇄  العسكريه Armata-tour — activity · Moscow
+- البجي العملاق Armata-tour  ⇄  العسكريه Armata-tour — activity · Moscow
+- مدينه الملاهي Dream island  ⇄  مدينه الملاهي Dream island — activity · Moscow
+- مدينه الملاهي Dream island  ⇄  Dream Island Park — activity · Moscow
+- مدينه الملاهي Dream island  ⇄  Dream Island Park — activity · Moscow
+- القفز بالمظلة flyday  ⇄  Flyday القفز بالمظله — activity · Moscow
+- فعاليات الهلكيوبتر VIP Вертолётные технологии  ⇄  فعاليات الهلكيوبتر VIP Вертолётные технологии — activity · Moscow
+- مسرح / باليه Bolshoi  ⇄  مسرح / باليه Bolshoi — activity · Moscow
+- مسرح / باليه Bolshoi  ⇄  Bolshoi Theatre — activity · Moscow
+- مسرح / باليه Bolshoi  ⇄  Bolshoi Theatre — activity · Moscow
+- العسكريه Armata-tour  ⇄  البجي العملاق Armata-tour — activity · Moscow
+- العسكريه Armata-tour  ⇄  العسكريه Armata-tour — activity · Moscow
+- الهلكيوبتر heliport  ⇄  Heliport فعاليه الهلكيوبتر — activity · Moscow
+- تجربة الطيارTft. aero  ⇄  تجربة الطيارTft. aero — activity · Moscow
+- فعاليات/ألعاب فضائية Орион  ⇄  فعاليات/ألعاب فضائية Орион — activity · Moscow
+- Aeronavt المنطاد  ⇄  Aeronavt المنطاد — activity · Moscow
+- Aeronuts المنطاد الحديث  ⇄  Aeronuts المنطاد الحديث — activity · Moscow
+- Aquafly فعاليات ألمانية  ⇄  Aquafly فعاليات ألمانية — activity · Moscow
+- Aquapark  ⇄  Aquapark Karibiya المدينه المايه للعايلات — activity · Moscow
+- Aquapark Karibiya المدينه المايه للعايلات  ⇄  Aquapark — activity · Moscow
+- Aquapark Karibiya المدينه المايه للعايلات  ⇄  Aquapark Karibiya المدينه المايه للعايلات — activity · Moscow
+- armatatour فعاليات الاكشن  ⇄  armatatour فعاليات الاكشن — activity · Moscow
+- Audi quattro Campفعاليات الدريفت  ⇄  Audi quattro الدريفت — activity · Moscow
+- Audi quattro Campفعاليات الدريفت  ⇄  Audi quattro الدريفت — activity · Moscow
+- Audi quattro Campفعاليات الدريفت  ⇄  Audi quattro Campفعاليات الدريفت — activity · Moscow
+- Ballada فعاليات ركوب الخيل  ⇄  Ballada فعاليات ركوب الخيل — activity · Moscow
+- Bolshoi Theatre (Tickets)  ⇄  مسرح / باليه Bolshoi — activity · Moscow
+- Bolshoi Theatre (Tickets)  ⇄  مسرح / باليه Bolshoi — activity · Moscow
+- Bolshoi Theatre (Tickets)  ⇄  Bolshoi Theatre — activity · Moscow
+- Club Give / المنطاد  ⇄  Club Give / المنطاد — activity · Moscow
+- Club Give the Sky المنطاد  ⇄  Club Give the Sky المنطاد — activity · Moscow
+- Crossmania. Club فعاليات البجي العملاق  ⇄  Crossmania. Club فعاليات البجي العملاق — activity · Moscow
+- Drifting فعاليات الدريفت  ⇄  Drifting فعاليات الدريفت — activity · Moscow
+- ExpeditionClub فعاليات البجي + الهاسكي + الخيل  ⇄  ExpeditionClub فعاليات البجي + الهاسكي + الخيل — activity · Moscow
+- Flow Moscow فعاليات الطبيعه  ⇄  Flow Moscow فعاليات الطبيعه — activity · Moscow
+- Freestyle Extreme Park فعاليات التزلج من علي الجليد  ⇄  Freestyle Extreme Park فعاليات التزلج من علي الجليد — activity · Moscow
+- husky  ⇄  Husky Park — activity · Moscow
+- I-Fly فعاليات الطيران الداخلي  ⇄  I-Fly فعاليات الطيران الداخلي — activity · Moscow
+- Icg Extreme Team القفز الحر ( 6000)  ⇄  Icg Extreme Team القفز الحر ( 6000) — activity · Moscow
+- Klub Vozdukhoplavatel المنطاد  ⇄  Klub Vozdukhoplavatel المنطاد — activity · Moscow
+- Kvadr 24 فعاليات البجي العملاق + السنو موبايل  ⇄  Kvadr 24 فعاليات البجي العملاق + السنو موبايل — activity · Moscow
+- MagicFlight المنطاد مانجا  ⇄  MagicFlight المنطاد مانجا — activity · Moscow
+- Master Panin Park فعاليات الباجي والاستعراضات الروسيه  ⇄  Master Panin Park فعاليات الباجي والاستعراضات الروسيه — activity · Moscow
+- Miks Electro Karting فعاليه الكارتينج الاطفال  ⇄  Miks Electro Karting فعاليه الكارتينج الاطفال — activity · Moscow
+- Miks Karting الكارتينج  ⇄  Miks Karting الكارتينج — activity · Moscow
+- Misty Park Amusement Park  ⇄  Misty Park Amusement Park — activity · Moscow
+- Moscow Helicopter فعاليات الهليكوبتر  ⇄  Moscow Helicopter فعاليات الهليكوبتر — activity · Moscow
+- Moscow Paintball Federation فعاليات حرب  ⇄  Moscow Paintball Federation فعاليات حرب — activity · Moscow
+- Nikulin Circus  ⇄  Nikulin Circus Tsvetnoy — activity · Moscow
+- PandaPark حديقه العاب الباندا مغامرات الاطفال  ⇄  PandaPark Luzhniki حديقه البندا للاطفال — activity · Moscow
+- Rkvadro فعاليات البجي العملاق  ⇄  Rkvadro فعاليات البجي العملاق — activity · Moscow
+- SharM المنطاد  ⇄  SharM المنطاد — activity · Moscow
+- Skazka مدينه الملاهي الكبري  ⇄  Skazka مدينه الملاهي الكبري — activity · Moscow
+- Territoriapoleta جميع فعاليات الطيران VIP  ⇄  Territoriapoleta جميع فعاليات الطيران VIP — activity · Moscow
+- Touch the sky فعاليات المنطاد  ⇄  Touch the sky فعاليات المنطاد — activity · Moscow
+- Vodnoe taxi كروز نهري  ⇄  Vodnoe taxi كروز نهري — activity · Moscow
+- X-Fly فعاليات المائيه  ⇄  X-Fly فعاليات المائيه — activity · Moscow
+- 🐋 جولة تيريبيركا  ⇄  🐋 جولة تيريبيركا — activity · Murmansk
+- BIG WOOD التزلج  ⇄  BIG WOOD التزلج — activity · Murmansk
+- husky  ⇄  husky — activity · Murmansk
+- snowmobile الدباب الثلجي  ⇄  snowmobile الدباب الثلجي — activity · Murmansk
+- فعاليات القفز – Валькирия  ⇄  فعاليات القفز – Валькирия — activity · Saint Petersburg
+- رحلة نهرية – Нева Тревел  ⇄  رحلة نهرية – Нева Тревел — activity · Saint Petersburg
+- فعاليات السنو موبايل والبجي – Kvadro Bum  ⇄  فعاليات السنو موبايل والبجي – Kvadro Bum — activity · Saint Petersburg
+- لسيرك الكبير – سانت بطرسبرغ The Great Circus  ⇄  لسيرك الكبير – سانت بطرسبرغ The Great Circus — activity · Saint Petersburg
+- تجربة قيادة الطائرات – Liner 737  ⇄  تجربة قيادة الطائرات – Liner 737 — activity · Saint Petersburg
+- رحلة يخت نهرية – Piter s vody  ⇄  رحلة يخت نهرية – Piter s vody — activity · Saint Petersburg
+- فعاليات القفز بالمظلة – Skydiving  ⇄  فعاليات القفز بالمظلة – Skydiving — activity · Saint Petersburg
+- فعاليات القفز المجنون 2026 – Sivoritsy  ⇄  فعاليات القفز المجنون 2026 – Sivoritsy — activity · Saint Petersburg
+- فعاليات القفز – Asc Sivoritsy  ⇄  فعاليات القفز – Asc Sivoritsy — activity · Saint Petersburg
+- فعالية المنطاد – Hdb  ⇄  فعالية المنطاد – Hdb — activity · Saint Petersburg
+- فعاليات الدريفت – Kultura Zanosa  ⇄  فعاليات الدريفت – Kultura Zanosa — activity · Saint Petersburg
+- الرحلة النهرية – Northern Palmyra  ⇄  الرحلة النهرية – Northern Palmyra — activity · Saint Petersburg
+- فعالية المنطاد – Polety na Share  ⇄  فعالية المنطاد – Polety na Share — activity · Saint Petersburg
+- فعالية الكارتينغ – Primo Karting  ⇄  فعالية الكارتينغ – Primo Karting — activity · Saint Petersburg
+- فعاليات حرب – Snaker  ⇄  فعاليات حرب – Snaker — activity · Saint Petersburg
+- فعاليات التجربة العسكرية VIP – ARMpoligon  ⇄  فعاليات التجربة العسكرية VIP – ARMpoligon — activity · Saint Petersburg
+- فعاليات الهليكوبتر + المنطاد – Vzletim  ⇄  فعاليات الهليكوبتر + المنطاد – Vzletim — activity · Saint Petersburg
+- فعاليات اكوا بارك Галактика  ⇄  فعاليات اكوا بارك Галактика — activity · Sochi
+- فعالية ركوب الهاسكي Husky riding  ⇄  فعالية ركوب الهاسكي Husky riding — activity · Sochi
+- فعاليه تجربة السيرف Meduza Surf  ⇄  فعاليه تجربة السيرف Meduza Surf — activity · Sochi
+- التجديف النهري فعاليه Rafting  ⇄  التجديف النهري فعاليه Rafting — activity · Sochi
+- فعاليات سكاي بارك Skypark  ⇄  فعاليات سكاي بارك Skypark — activity · Sochi
+- السيرك الروسي سوتشي Sochi Circus  ⇄  السيرك الروسي سوتشي Sochi Circus — activity · Sochi
+- فعالية التزلج الهليكوبتر Sochi Heliski  ⇄  فعالية التزلج الهليكوبتر Sochi Heliski — activity · Sochi
+- أكوا بارك أوكتيابرسكي Water park  ⇄  أكوا بارك أوكتيابرسكي Water park — activity · Sochi
+- الكارتينج علي البحر X-ti Karting  ⇄  الكارتينج علي البحر X-ti Karting — activity · Sochi
+- فعاليات البجي + الموتسيكلات Enduro  ⇄  فعاليات البجي + الموتسيكلات Enduro — activity · Sochi
+- تجربة الألبكة Alpaca Park  ⇄  تجربة الألبكة Alpaca Park — activity · Sochi
+- تجربة الألبكة Alpaca Park  ⇄  Alpaca Park Pacha فعاليه الألبكة — activity · Sochi
+- فعالية المنطاد Balloon  ⇄  فعالية المنطاد Balloon — activity · Sochi
+- فعاليات الاطفال FunGrad  ⇄  فعاليات الاطفال FunGrad — activity · Sochi
+- فعاليه الهاسكي Husky Khutor  ⇄  فعاليه الهاسكي Husky Khutor — activity · Sochi
+- فعاليات ريفيرا Riviera  ⇄  فعاليات ريفيرا Riviera — activity · Sochi
+- عروض الدلافين Sochi dolphinarium  ⇄  عروض الدلافين Sochi dolphinarium — activity · Sochi
+- فعاليه اليخت Yacht Moremaniya  ⇄  فعاليه اليخت Yacht Moremaniya — activity · Sochi
+- Alpaca Park Pacha فعاليه الألبكة  ⇄  تجربة الألبكة Alpaca Park — activity · Sochi
+- Karting club Pro فعاليه الكارتينج  ⇄  Karting club Pro فعاليه الكارتينج — activity · Sochi
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- KAZAN  — hotel · Kazan
+- Kazan Cottages & Resorts  — hotel · Kazan
+- Kazan Family Center (Chasha)  ⇄  KAZAN  — hotel · Kazan
+- Kazan Kremlin (UNESCO)  ⇄  KAZAN  — hotel · Kazan
+- Kazan Restaurants  — hotel · Kazan
+- Kazan Zoobotanical Garden (River Zambezi)  ⇄  KAZAN  — hotel · Kazan
+- Kol Gali Resort & SPA 5★  ⇄  Kol Gali Resort & SPA — hotel · Kazan
+- القفز بالمظلة flyday  ⇄  Flyday القفز بالمظله — hotel · Moscow
+- Chekhoff Hotel Moscow Curio Collection by Hilton  ⇄  Chekhoff Hotel Moscow — hotel · Moscow
+- City Comfort  ⇄  City Comfort at Kitay-Gorod — hotel · Moscow
+- Four Seasons  ⇄  Four Seasons Hotel Moscow — hotel · Moscow
+- Heliport فعاليه الهلكيوبتر  ⇄  الهلكيوبتر heliport — hotel · Moscow
+- Hyatt Regency Moscow  ⇄  Hyatt Regency Moscow Petrovsky Park — hotel · Moscow
+- Lotte  ⇄  Lotte Hotel — hotel · Moscow
+- Lotte  ⇄  Lotte Hotel Moscow — hotel · Moscow
+- Lotte Hotel  ⇄  Lotte Hotel Moscow — hotel · Moscow
+- Mercure Moscow Baumanskaya  ⇄  Mercure — hotel · Moscow
+- PandaPark حديقه العاب الباندا مغامرات الاطفال  ⇄  PandaPark Luzhniki حديقه البندا للاطفال — hotel · Moscow
+- pentaHotel  ⇄  Pentahotel Moscow Arbat — hotel · Moscow
+- pineriver  ⇄  PineRiver ٍ — hotel · Moscow
+- Regul  ⇄  Regul Boutique Hotel — hotel · Moscow
+- Stella di Mosca Hotel & Residences  ⇄  Stella di Mosca — hotel · Moscow
+- Nord Star  ⇄  Nord Star Hotel Murmansk — hotel · Murmansk
+- Nord Star  ⇄  Nord Star Ski Complex / Recreation — hotel · Murmansk
+- Alex  ⇄  Alex na Dybenko — hotel · Saint Petersburg
+- Alex on Kosygina  ⇄  Alex — hotel · Saint Petersburg
+- Cosmos Selection  ⇄  Cosmos Selection St. Petersburg Nevsky Royal Hotel — hotel · Saint Petersburg
+- Four Seasons Lion Palace St. Petersburg  ⇄  Four Seasons Lion Palace — hotel · Saint Petersburg
+- Russian Seasons Boutique-Hotel Kizhi  ⇄  Russian Seasons Boutique-Hotel — hotel · Sochi

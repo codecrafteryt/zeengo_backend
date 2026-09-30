@@ -557,16 +557,117 @@ model Vendor {
   cancellationPolicy  String?             @map("cancellation_policy")
   notes               String?
   isActive            Boolean             @default(true) @map("is_active")
+  // Public catalog fields (website). Optional so existing OPS rows stay valid.
+  nameEn              String?             @map("name_en")
+  nameAr              String?             @map("name_ar")
+  nameRu              String?             @map("name_ru")
+  summary             String?
+  summaryAr           String?             @map("summary_ar")
+  address             String?
+  area                String?
+  lat                 Float?
+  lng                 Float?
+  stars               Int?
+  rating              Decimal?            @db.Decimal(3, 2)
+  ratingCount         Int?                @map("rating_count")
+  images              Json                @default("[]")
+  priceFrom           Decimal?            @map("price_from") @db.Decimal(12, 2)
+  priceCurrency       String              @default("RUB") @map("price_currency")
+  /// night | person | hour | trip
+  priceUnit           String?             @map("price_unit")
+  category            String?
+  durationLabel       String?             @map("duration_label")
+  languages           String?
+  website             String?
+  yandexMapsUrl       String?             @map("yandex_maps_url")
+  isPublished         Boolean             @default(true) @map("is_published")
+  dataSource          String?             @map("data_source")
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt           DateTime?           @map("deleted_at") @db.Timestamptz(6)
 
   itineraryItems ItineraryItem[]
   vendorBookings VendorBooking[]
+  rooms          HotelRoom[]
 
   @@index([type])
   @@index([city])
+  @@index([type, isPublished])
   @@map("vendors")
+}
+
+/// Room types offered by a hotel vendor (website hotel detail → choose room).
+model HotelRoom {
+  id           String    @id @default(uuid()) @db.Uuid
+  vendorId     String    @map("vendor_id") @db.Uuid
+  name         String
+  nameRu       String?   @map("name_ru")
+  sizeM2       Int?      @map("size_m2")
+  beds         String?
+  maxGuests    Int?      @map("max_guests")
+  breakfast    Boolean?
+  images       Json      @default("[]")
+  rate         Decimal?  @db.Decimal(12, 2)
+  rateCurrency String    @default("RUB") @map("rate_currency")
+  refundable   Boolean?
+  sourceUrl    String?   @map("source_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, sortOrder])
+  @@map("hotel_rooms")
+}
+
+/// Car-with-driver classes and the indicative rate card used for quotes.
+model VehicleClass {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  nameEn       String   @map("name_en")
+  nameAr       String?  @map("name_ar")
+  group        String?
+  models       String?
+  maxPax       Int      @map("max_pax")
+  maxBags      Int?     @map("max_bags")
+  rateAirport  Decimal? @map("rate_airport") @db.Decimal(12, 2)
+  rateHourly   Decimal? @map("rate_hourly") @db.Decimal(12, 2)
+  rateDay8     Decimal? @map("rate_day8") @db.Decimal(12, 2)
+  rateCurrency String   @default("RUB") @map("rate_currency")
+  note         String?
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("vehicle_classes")
+}
+
+/// Indicative train timetable; tickets are issued by the ZEEN desk on request.
+model TrainRoute {
+  id           String   @id @default(uuid()) @db.Uuid
+  key          String   @unique
+  fromStation  String   @map("from_station")
+  toStation    String   @map("to_station")
+  nameEn       String   @map("name_en")
+  nameAr       String?  @map("name_ar")
+  type         String?
+  typeLabel    String?  @map("type_label")
+  duration     String?
+  departures   String?
+  classes      Json     @default("[]")
+  km           Int?
+  rateFrom     Decimal? @map("rate_from") @db.Decimal(12, 2)
+  rateCurrency String   @default("RUB") @map("rate_currency")
+  operator     String?
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("train_routes")
 }
 
 model VendorBooking {

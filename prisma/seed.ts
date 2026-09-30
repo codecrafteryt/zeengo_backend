@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { ensureDemoStaff } from '../src/auth/ensure-demo-staff';
+import { DEMO_STAFF, ensureDemoStaff } from '../src/auth/ensure-demo-staff';
 import { seedClientV2 } from './seed-client-v2';
 
 const prisma = new PrismaClient();
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
   for (const row of dirty) {
     await prisma.editRequest.update({
       where: { id: row.id },
-      data: { reason: row.reason.replace(/^\[seed\]\s*/i, '') },
+      data: { reason: (row.reason ?? '').replace(/^\[seed\]\s*/i, '') },
     });
   }
 
@@ -548,7 +548,7 @@ async function main(): Promise<void> {
   console.log(`Vendors seeded: ${vendorSeeded} new (of ${vendorSamples.length})`);
 
   console.log('Seed complete — staff accounts (password: demo password):');
-  for (const account of staffAccounts) {
+  for (const account of DEMO_STAFF) {
     console.log(`  ${account.role.padEnd(12)} ${account.email}`);
   }
   console.log(`Packages seeded: ${packages.map((p) => p.slug).join(', ')}`);
