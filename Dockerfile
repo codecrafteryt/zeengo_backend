@@ -31,4 +31,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 # Apply pending Prisma migrations, then exec Nest so PID 1 stays the app process.
-CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/main.js"]
+CMD ["sh", "scripts/start-prod.sh"]
