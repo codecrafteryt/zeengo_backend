@@ -537,6 +537,7 @@ export class ClientPortalService {
         include: { client: true, package: true },
       });
       if (bound) return bound;
+      throw AppError.notFound('BOOKING_NOT_FOUND', 'No booking for this client');
     }
 
     // Legacy tokens without bookingId — fall back to newest eligible booking.

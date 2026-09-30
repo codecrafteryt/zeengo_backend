@@ -18,6 +18,7 @@ import {
   mapDailyOperationItem,
   mapItineraryItem,
 } from './itineraries.mapper';
+import { clientMayAccessBooking } from '../auth/client-auth.policy';
 
 const ITINERARY_WRITE_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -405,7 +406,7 @@ export class ItinerariesService {
 
   private async ensureBookingReadable(bookingId: string, user: AuthPrincipal) {
     const booking = await this.ensureBookingExists(bookingId);
-    if (user.type === 'client' && booking.clientId !== user.sub) {
+    if (!clientMayAccessBooking(booking, user)) {
       throw AppError.forbidden();
     }
     await assertDriverAssignedToBooking({

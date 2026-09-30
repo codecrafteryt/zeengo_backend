@@ -98,7 +98,11 @@ export class RealtimeGateway
           await client.join(`role:${user.role}`);
         }
       } else {
-        await client.join(`client:${user.sub}`);
+        await client.join(
+          user.bookingId
+            ? `client:${user.sub}:booking:${user.bookingId}`
+            : `client:${user.sub}`,
+        );
       }
 
       this.logger.debug(`Client connected: ${user.type}:${user.sub}`);

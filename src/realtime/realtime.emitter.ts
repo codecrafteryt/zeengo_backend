@@ -30,6 +30,19 @@ export type RealtimeEvent =
   | 'vendor.assigned'
   | 'vendor.booking.updated';
 
+/**
+ * Sockets for a client session bound to one booking join only the
+ * booking-scoped room; unbound (phone-verified) sessions join the client room.
+ */
+export function clientRooms(
+  clientId: string,
+  bookingId?: string | null,
+): string[] {
+  return bookingId
+    ? [`client:${clientId}`, `client:${clientId}:booking:${bookingId}`]
+    : [`client:${clientId}`];
+}
+
 @Injectable()
 export class RealtimeEmitter {
   private readonly logger = new Logger(RealtimeEmitter.name);

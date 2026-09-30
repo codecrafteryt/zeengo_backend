@@ -55,6 +55,7 @@ export class AuthController {
     const input = body as ReturnType<typeof clientLoginSchema.parse>;
     return this.authService.clientLogin(
       input.bookingCode,
+      input.phone,
       input.fcmToken,
       input.platform,
     );
@@ -67,6 +68,7 @@ export class AuthController {
     const input = body as ReturnType<typeof clientZnLoginSchema.parse>;
     return this.authService.clientLoginByZnCode(
       input.znCode,
+      input.phone,
       input.fcmToken,
       input.platform,
     );

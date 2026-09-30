@@ -15,6 +15,7 @@ import { pageMeta, parseSort, toSkipTake } from '../common/pagination/pagination
 import { OPEN_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { CreateSosDto, ListSosQuery } from './sos.schema';
 import { mapSosAlert } from './sos.mapper';
+import { clientMayAccessBooking } from '../auth/client-auth.policy';
 
 const SOS_READ_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -50,7 +51,11 @@ export class SosService {
     }
 
     const booking = await this.prisma.booking.findFirst({
-      where: { clientId: user.sub, status: BookingStatus.active },
+      where: {
+        clientId: user.sub,
+        status: BookingStatus.active,
+        ...(user.bookingId ? { id: user.bookingId } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!booking) {
@@ -144,7 +149,7 @@ export class SosService {
       const booking = await this.prisma.booking.findUnique({
         where: { id: row.bookingId },
       });
-      if (!booking || booking.clientId !== user.sub) {
+      if (!booking || !clientMayAccessBooking(booking, user)) {
         throw AppError.forbidden();
       }
     } else {

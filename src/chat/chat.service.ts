@@ -11,7 +11,7 @@ import { CHAT_DRIVER_ASSIGNMENT_STATUSES } from '../drivers/assignment.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
-import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { RealtimeEmitter, clientRooms } from '../realtime/realtime.emitter';
 import { JobsService } from '../jobs/jobs.service';
 import {
   CreateConversationDto,
@@ -29,6 +29,7 @@ import {
   ClientChatRole,
   staffRolesForChannel,
 } from './chat.role';
+import { clientMayAccessBooking } from '../auth/client-auth.policy';
 
 const CHAT_STAFF_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -70,7 +71,12 @@ export class ChatService {
 
     const participantKey = this.participantKey(user);
     const participants = await this.prisma.conversationParticipant.findMany({
-      where: { participantKey },
+      where: {
+        participantKey,
+        ...(user.type === 'client' && user.bookingId
+          ? { conversation: { bookingId: user.bookingId } }
+          : {}),
+      },
       include: {
         conversation: { include: conversationInclude },
       },
@@ -627,6 +633,15 @@ export class ChatService {
     if (!participant) {
       throw AppError.forbidden('Not a conversation participant');
     }
+    if (user.type === 'client' && user.bookingId) {
+      const conv = await this.prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { bookingId: true },
+      });
+      if (conv?.bookingId !== user.bookingId) {
+        throw AppError.forbidden('Not a conversation participant');
+      }
+    }
     return participant;
   }
 
@@ -720,7 +735,7 @@ export class ChatService {
     if (!booking) throw AppError.notFound('BOOKING_NOT_FOUND', 'Booking not found');
 
     if (user.type === 'client') {
-      if (booking.clientId !== user.sub) throw AppError.forbidden();
+      if (!clientMayAccessBooking(booking, user)) throw AppError.forbidden();
       return;
     }
 
@@ -800,7 +815,7 @@ export class ChatService {
       select: { id: true, clientId: true },
     });
     if (!booking) throw AppError.notFound('BOOKING_NOT_FOUND', 'Booking not found');
-    if (user.type === 'client' && booking.clientId !== user.sub) {
+    if (!clientMayAccessBooking(booking, user)) {
       throw AppError.forbidden();
     }
     if (user.type === 'staff' && user.role === StaffRole.driver) {
@@ -817,20 +832,22 @@ export class ChatService {
   }
 
   private async participantRooms(conversationId: string): Promise<string[]> {
-    const participants = await this.prisma.conversationParticipant.findMany({
-      where: { conversationId },
-    });
-    return participants
-      .map((p) =>
-        p.participantType === ParticipantType.staff
-          ? p.staffId
-            ? `user:${p.staffId}`
-            : null
-          : p.clientId
-            ? `client:${p.clientId}`
-            : null,
-      )
-      .filter((r): r is string => Boolean(r));
+    const [participants, conversation] = await Promise.all([
+      this.prisma.conversationParticipant.findMany({ where: { conversationId } }),
+      this.prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { bookingId: true },
+      }),
+    ]);
+    return participants.flatMap((p) =>
+      p.participantType === ParticipantType.staff
+        ? p.staffId
+          ? [`user:${p.staffId}`]
+          : []
+        : p.clientId
+          ? clientRooms(p.clientId, conversation?.bookingId)
+          : [],
+    );
   }
 
   /** Emit only to guest + staff on the same channel (not whole conversation room). */
@@ -838,15 +855,21 @@ export class ChatService {
     conversationId: string,
     channel: ClientChatRole | null,
   ): Promise<string[]> {
-    const participants = await this.prisma.conversationParticipant.findMany({
-      where: { conversationId },
-      include: { staff: { select: { id: true, role: true } } },
-    });
+    const [participants, conversation] = await Promise.all([
+      this.prisma.conversationParticipant.findMany({
+        where: { conversationId },
+        include: { staff: { select: { id: true, role: true } } },
+      }),
+      this.prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { bookingId: true },
+      }),
+    ]);
 
     const rooms: string[] = [];
     for (const p of participants) {
       if (p.participantType === ParticipantType.client && p.clientId) {
-        rooms.push(`client:${p.clientId}`);
+        rooms.push(...clientRooms(p.clientId, conversation?.bookingId));
         continue;
       }
       if (p.participantType === ParticipantType.staff && p.staff) {

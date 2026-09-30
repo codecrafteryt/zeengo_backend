@@ -25,6 +25,7 @@ import {
   ReviewEditRequestDto,
 } from './edit-requests.schema';
 import { mapEditRequest } from './edit-requests.mapper';
+import { clientMayAccessBooking } from '../auth/client-auth.policy';
 
 const REVIEW_ROLES: StaffRole[] = [
   StaffRole.admin,
@@ -123,7 +124,7 @@ export class EditRequestsService {
 
   async listByBooking(bookingId: string, user: AuthPrincipal) {
     const booking = await this.ensureBooking(bookingId);
-    this.assertBookingAccess(booking.clientId, user);
+    this.assertBookingAccess(booking, user);
 
     const rows = await this.prisma.editRequest.findMany({
       where: { bookingId },
@@ -136,7 +137,7 @@ export class EditRequestsService {
 
   async getById(id: string, user: AuthPrincipal) {
     const row = await this.ensureEditRequest(id);
-    this.assertBookingAccess(row.booking.clientId, user);
+    this.assertBookingAccess(row.booking, user);
     return mapEditRequest(row);
   }
 
@@ -399,6 +400,7 @@ export class EditRequestsService {
         },
       });
       if (bound) return bound;
+      throw AppError.notFound('ACTIVE_BOOKING_NOT_FOUND', 'No active booking found');
     }
 
     const booking = await this.prisma.booking.findFirst({
@@ -451,8 +453,11 @@ export class EditRequestsService {
     }
   }
 
-  private assertBookingAccess(clientId: string, user: AuthPrincipal) {
-    if (user.type === 'client' && clientId !== user.sub) {
+  private assertBookingAccess(
+    booking: { id: string; clientId: string },
+    user: AuthPrincipal,
+  ) {
+    if (!clientMayAccessBooking(booking, user)) {
       throw AppError.forbidden();
     }
     if (user.type === 'staff' && user.role && !STAFF_READ_ROLES.includes(user.role)) {

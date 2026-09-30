@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
-import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { RealtimeEmitter, clientRooms } from '../realtime/realtime.emitter';
 import { mapMessage, resolveMessageChannel } from '../chat/chat.mapper';
 import { channelForStaffRole } from '../chat/chat.role';
 import type { TranslationJobData } from './jobs.service';
@@ -36,23 +36,27 @@ export class TranslationProcessor extends WorkerHost {
     });
 
     const channel = resolveMessageChannel(row);
-    const participants = await this.prisma.conversationParticipant.findMany({
-      where: { conversationId: row.conversationId },
-      include: { staff: { select: { id: true, role: true } } },
+    const [participants, conversation] = await Promise.all([
+      this.prisma.conversationParticipant.findMany({
+        where: { conversationId: row.conversationId },
+        include: { staff: { select: { id: true, role: true } } },
+      }),
+      this.prisma.conversation.findUnique({
+        where: { id: row.conversationId },
+        select: { bookingId: true },
+      }),
+    ]);
+    const rooms = participants.flatMap((p) => {
+      if (p.participantType === 'client' && p.clientId) {
+        return clientRooms(p.clientId, conversation?.bookingId);
+      }
+      if (p.participantType === 'staff' && p.staff) {
+        if (!channel || channelForStaffRole(p.staff.role) === channel) {
+          return [`user:${p.staff.id}`];
+        }
+      }
+      return [];
     });
-    const rooms = participants
-      .map((p) => {
-        if (p.participantType === 'client' && p.clientId) {
-          return `client:${p.clientId}`;
-        }
-        if (p.participantType === 'staff' && p.staff) {
-          if (!channel || channelForStaffRole(p.staff.role) === channel) {
-            return `user:${p.staff.id}`;
-          }
-        }
-        return null;
-      })
-      .filter((r): r is string => Boolean(r));
     this.realtime.emit('message.translated', mapMessage(row), rooms);
   }
 }

@@ -25,6 +25,7 @@ export const clientLoginSchema = z
   .object({
     bookingCode: z.string().min(2).max(32).optional(),
     znCode: z.string().min(2).max(32).optional(),
+    phone: z.string().trim().max(32).optional(),
     fcmToken: z.string().min(1).optional(),
     deviceToken: z.string().min(1).optional(),
     platform: z.enum(['ios', 'android', 'web']).optional(),
@@ -35,6 +36,7 @@ export const clientLoginSchema = z
   })
   .transform((value) => ({
     bookingCode: (value.bookingCode ?? value.znCode ?? '').trim(),
+    phone: value.phone || undefined,
     fcmToken: (value.fcmToken ?? value.deviceToken)?.trim() || undefined,
     platform: value.platform,
   }));
@@ -42,12 +44,14 @@ export const clientLoginSchema = z
 export const clientZnLoginSchema = z
   .object({
     znCode: z.string().trim().min(2).max(32),
+    phone: z.string().trim().max(32).optional(),
     fcmToken: z.string().min(1).optional(),
     deviceToken: z.string().min(1).optional(),
     platform: z.enum(['ios', 'android', 'web']).optional(),
   })
   .transform((value) => ({
     znCode: value.znCode,
+    phone: value.phone || undefined,
     fcmToken: (value.fcmToken ?? value.deviceToken)?.trim() || undefined,
     platform: value.platform,
   }));

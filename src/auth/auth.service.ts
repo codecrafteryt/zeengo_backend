@@ -15,7 +15,10 @@ import {
   verifyPassword,
 } from '../common/crypto.util';
 import { mapStaffUser } from '../users/users.mapper';
-import { isBookingEligibleForClientLogin } from './client-auth.policy';
+import {
+  isBookingEligibleForClientLogin,
+  phoneMatchesClient,
+} from './client-auth.policy';
 
 type TokenPayload = {
   sub: string;
@@ -203,16 +206,18 @@ export class AuthService {
 
   async clientLogin(
     bookingCode: string,
+    phone?: string,
     fcmToken?: string,
     platform?: string,
   ) {
     // Same status rules as zn-login: cancelled bookings cannot authenticate.
-    return this.clientLoginByZnCode(bookingCode, fcmToken, platform);
+    return this.clientLoginByZnCode(bookingCode, phone, fcmToken, platform);
   }
 
-  /** Guest mobile entry: booking code (ZN####) is the client identity. */
+  /** Guest entry: booking code (ZN####) plus the phone on that booking. */
   async clientLoginByZnCode(
     znCode: string,
+    phone?: string,
     fcmToken?: string,
     platform?: string,
   ) {
@@ -224,11 +229,17 @@ export class AuthService {
       },
       include: { client: true },
     });
+    const invalid = 'Invalid booking code or phone number';
     if (!booking || booking.client.deletedAt) {
-      throw AppError.unauthorized('Invalid booking code');
+      throw AppError.unauthorized(invalid);
     }
     if (!isBookingEligibleForClientLogin(booking.status)) {
-      throw AppError.unauthorized('Invalid booking code');
+      throw AppError.unauthorized(invalid);
+    }
+    const znOnlyAllowed =
+      this.config.get<string>('ALLOW_ZN_ONLY_LOGIN', 'false') === 'true';
+    if (!znOnlyAllowed && !phoneMatchesClient(phone, booking.client.phone)) {
+      throw AppError.unauthorized(invalid);
     }
 
     if (fcmToken) {

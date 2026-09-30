@@ -15,6 +15,7 @@ import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
+import { clientMayAccessBooking } from '../auth/client-auth.policy';
 import {
   pageMeta,
   parseSort,
@@ -277,18 +278,9 @@ export class BookingsService {
             nationality: dto.client.nationality,
           },
         });
-      } else {
-        client = await tx.client.update({
-          where: { id: client.id },
-          data: {
-            fullName: dto.client.fullName,
-            ...(dto.client.email !== undefined ? { email: dto.client.email } : {}),
-            ...(dto.client.nationality !== undefined
-              ? { nationality: dto.client.nationality }
-              : {}),
-          },
-        });
       }
+      // An anonymous caller only proves knowledge of a phone number, so an
+      // existing client's profile is never modified from this path.
 
       const rows = await tx.$queryRaw<{ zn: string }[]>`
         SELECT 'ZN' || lpad(nextval('zn_seq')::text, 4, '0') AS zn
@@ -636,7 +628,7 @@ export class BookingsService {
       throw AppError.notFound('BOOKING_NOT_FOUND', 'Booking not found');
     }
 
-    this.assertBookingAccess(row.clientId, user);
+    this.assertBookingAccess(row, user);
 
     const paidAmount = await this.getPaidAmount(id);
     return mapBooking(row, paidAmount);
@@ -926,7 +918,10 @@ export class BookingsService {
 
   private clientScopeWhere(user: AuthPrincipal): Prisma.BookingWhereInput {
     if (user.type === 'client') {
-      return { clientId: user.sub };
+      return {
+        clientId: user.sub,
+        ...(user.bookingId ? { id: user.bookingId } : {}),
+      };
     }
     return {};
   }
@@ -948,8 +943,11 @@ export class BookingsService {
     }
   }
 
-  private assertBookingAccess(clientId: string, user: AuthPrincipal) {
-    if (user.type === 'client' && clientId !== user.sub) {
+  private assertBookingAccess(
+    booking: { id: string; clientId: string },
+    user: AuthPrincipal,
+  ) {
+    if (!clientMayAccessBooking(booking, user)) {
       throw AppError.forbidden();
     }
   }
@@ -966,7 +964,7 @@ export class BookingsService {
 
   private async ensureBookingReadable(bookingId: string, user: AuthPrincipal) {
     const booking = await this.ensureBookingExists(bookingId);
-    this.assertBookingAccess(booking.clientId, user);
+    this.assertBookingAccess(booking, user);
     await assertDriverAssignedToBooking({
       user,
       bookingId,

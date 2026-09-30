@@ -8,7 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
-import { RealtimeEmitter } from '../realtime/realtime.emitter';
+import { RealtimeEmitter, clientRooms } from '../realtime/realtime.emitter';
 import { JobsService } from '../jobs/jobs.service';
 import { pageMeta, toSkipTake } from '../common/pagination/pagination';
 import { ListNotificationsQuery } from './notifications.schema';
@@ -137,13 +137,14 @@ export class NotificationsService {
 
     for (const row of rows) {
       const mapped = mapNotification(row);
-      const room =
+      const bookingId = (row.data as { bookingId?: string } | null)?.bookingId;
+      const rooms =
         row.recipientType === 'staff' && row.staffId
-          ? `user:${row.staffId}`
+          ? [`user:${row.staffId}`]
           : row.clientId
-            ? `client:${row.clientId}`
+            ? clientRooms(row.clientId, bookingId)
             : undefined;
-      this.realtime.emit('notification.new', mapped, room ? [room] : undefined);
+      this.realtime.emit('notification.new', mapped, rooms);
 
       if (row.recipientType === NotificationRecipientType.client && row.clientId) {
         void this.enqueueClientPush(row.clientId, mapped);
@@ -226,7 +227,13 @@ export class NotificationsService {
 
   private recipientWhere(user: AuthPrincipal): Prisma.NotificationWhereInput {
     if (user.type === 'client') {
-      return { recipientType: 'client', clientId: user.sub };
+      return {
+        recipientType: 'client',
+        clientId: user.sub,
+        ...(user.bookingId
+          ? { data: { path: ['bookingId'], equals: user.bookingId } }
+          : {}),
+      };
     }
     return { recipientType: 'staff', staffId: user.sub };
   }
@@ -238,7 +245,11 @@ export class NotificationsService {
     }
 
     if (user.type === 'client') {
+      const data = row.data as { bookingId?: string } | null;
       if (row.clientId !== user.sub) throw AppError.forbidden();
+      if (user.bookingId && data?.bookingId !== user.bookingId) {
+        throw AppError.forbidden();
+      }
     } else if (row.staffId !== user.sub) {
       throw AppError.forbidden();
     }
