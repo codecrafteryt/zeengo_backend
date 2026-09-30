@@ -21,6 +21,29 @@ export type VendorDto = {
   notes: string | null;
   isActive: boolean;
   activeBookingsCount: number;
+  nameEn: string | null;
+  nameAr: string | null;
+  nameRu: string | null;
+  summary: string | null;
+  summaryAr: string | null;
+  address: string | null;
+  area: string | null;
+  lat: number | null;
+  lng: number | null;
+  stars: number | null;
+  rating: number | null;
+  ratingCount: number | null;
+  images: string[];
+  priceFrom: number | null;
+  priceCurrency: string;
+  priceUnit: string | null;
+  category: string | null;
+  durationLabel: string | null;
+  languages: string | null;
+  website: string | null;
+  yandexMapsUrl: string | null;
+  isPublished: boolean;
+  dataSource: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -102,6 +125,31 @@ export function mapVendor(row: VendorWithCount): VendorDto {
     notes: row.notes,
     isActive: row.isActive,
     activeBookingsCount: row._count?.vendorBookings ?? 0,
+    nameEn: row.nameEn,
+    nameAr: row.nameAr,
+    nameRu: row.nameRu,
+    summary: row.summary,
+    summaryAr: row.summaryAr,
+    address: row.address,
+    area: row.area,
+    lat: row.lat,
+    lng: row.lng,
+    stars: row.stars,
+    rating: row.rating === null ? null : decimalToNumber(row.rating),
+    ratingCount: row.ratingCount,
+    images: Array.isArray(row.images)
+      ? row.images.filter((v): v is string => typeof v === 'string')
+      : [],
+    priceFrom: row.priceFrom === null ? null : decimalToNumber(row.priceFrom),
+    priceCurrency: row.priceCurrency,
+    priceUnit: row.priceUnit,
+    category: row.category,
+    durationLabel: row.durationLabel,
+    languages: row.languages,
+    website: row.website,
+    yandexMapsUrl: row.yandexMapsUrl,
+    isPublished: row.isPublished,
+    dataSource: row.dataSource,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -117,7 +165,9 @@ export function mapVendorBooking(row: VendorBookingRow): VendorBookingDto {
     itineraryItemId: row.itineraryItemId,
     amount: row.amount == null ? null : decimalToNumber(row.amount),
     commissionAmount:
-      row.commissionAmount == null ? null : decimalToNumber(row.commissionAmount),
+      row.commissionAmount == null
+        ? null
+        : decimalToNumber(row.commissionAmount),
     serviceDate: row.serviceDate?.toISOString().slice(0, 10) ?? null,
     pax: row.pax,
     details: row.details,
@@ -175,7 +225,9 @@ export function buildVoucherEmail(params: {
   const dateLine = params.serviceDate ?? 'TBD';
   const paxLine = params.pax != null ? String(params.pax) : 'TBD';
   const extra = params.details ? `\nDetails / Детали: ${params.details}` : '';
-  const greeting = params.contactName ? `Dear ${params.contactName}` : 'Dear partners';
+  const greeting = params.contactName
+    ? `Dear ${params.contactName}`
+    : 'Dear partners';
 
   return {
     to: params.vendorEmail,

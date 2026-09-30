@@ -15,6 +15,7 @@ import {
 } from './itineraries.schema';
 import {
   DailyOperationsDayDto,
+  mapBookingItineraryItem,
   mapDailyOperationItem,
   mapItineraryItem,
 } from './itineraries.mapper';
@@ -41,7 +42,7 @@ export class ItinerariesService {
       orderBy: [{ dayNumber: 'asc' }, { sortOrder: 'asc' }, { startTime: 'asc' }],
     });
 
-    return rows.map(mapItineraryItem);
+    return rows.map(mapBookingItineraryItem);
   }
 
   async createItem(

@@ -70,11 +70,14 @@ export class VendorsService {
     if (query.type) where.type = query.type;
     if (query.city) where.city = { contains: query.city, mode: 'insensitive' };
     if (query.isActive !== undefined) where.isActive = query.isActive;
+    if (query.isPublished !== undefined) where.isPublished = query.isPublished;
 
     const search = query.search?.trim();
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
+        { nameEn: { contains: search, mode: 'insensitive' } },
+        { nameRu: { contains: search, mode: 'insensitive' } },
         { contactName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
@@ -196,6 +199,27 @@ export class VendorsService {
         paymentTerms: dto.paymentTerms,
         cancellationPolicy: dto.cancellationPolicy,
         notes: dto.notes,
+        nameEn: dto.nameEn,
+        nameAr: dto.nameAr,
+        nameRu: dto.nameRu,
+        summary: dto.summary,
+        summaryAr: dto.summaryAr,
+        address: dto.address,
+        area: dto.area,
+        lat: dto.lat,
+        lng: dto.lng,
+        stars: dto.stars,
+        images: dto.images,
+        priceFrom: dto.priceFrom,
+        priceCurrency: dto.priceCurrency,
+        priceUnit: dto.priceUnit,
+        category: dto.category,
+        durationLabel: dto.durationLabel,
+        languages: dto.languages,
+        website: dto.website,
+        yandexMapsUrl: dto.yandexMapsUrl,
+        isPublished: dto.isPublished,
+        dataSource: 'ops',
       },
     });
 
@@ -230,6 +254,26 @@ export class VendorsService {
         cancellationPolicy: dto.cancellationPolicy,
         notes: dto.notes,
         isActive: dto.isActive,
+        nameEn: dto.nameEn,
+        nameAr: dto.nameAr,
+        nameRu: dto.nameRu,
+        summary: dto.summary,
+        summaryAr: dto.summaryAr,
+        address: dto.address,
+        area: dto.area,
+        lat: dto.lat,
+        lng: dto.lng,
+        stars: dto.stars,
+        images: dto.images,
+        priceFrom: dto.priceFrom,
+        priceCurrency: dto.priceCurrency,
+        priceUnit: dto.priceUnit,
+        category: dto.category,
+        durationLabel: dto.durationLabel,
+        languages: dto.languages,
+        website: dto.website,
+        yandexMapsUrl: dto.yandexMapsUrl,
+        isPublished: dto.isPublished,
       },
     });
 
