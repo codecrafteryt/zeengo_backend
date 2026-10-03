@@ -19,6 +19,7 @@ import {
   isBookingEligibleForClientLogin,
   phoneMatchesClient,
 } from './client-auth.policy';
+import { clientRefreshRevokeKey } from './client-refresh.policy';
 
 type TokenPayload = {
   sub: string;
@@ -425,6 +426,11 @@ export class AuthService {
   async logout(refreshToken: string) {
     const hash = hashToken(refreshToken);
     await this.redis.del(`refresh:${hash}`);
+    await this.redis.set(
+      clientRefreshRevokeKey(hash),
+      '1',
+      ttlToSeconds(this.config.get<string>('JWT_REFRESH_TTL', '30d')),
+    );
     return { message: 'Logged out successfully' };
   }
 
@@ -538,6 +544,13 @@ export class AuthService {
     }
 
     if (decoded.type !== 'client' || decoded.typ !== 'refresh' || !decoded.sub) {
+      throw AppError.unauthorized('Invalid or expired refresh token');
+    }
+
+    const revoked = await this.redis.get(
+      clientRefreshRevokeKey(hashToken(refreshToken)),
+    );
+    if (revoked) {
       throw AppError.unauthorized('Invalid or expired refresh token');
     }
 

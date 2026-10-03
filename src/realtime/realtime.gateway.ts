@@ -15,6 +15,7 @@ import { StaffRole } from '@prisma/client';
 import { RealtimeEmitter } from './realtime.emitter';
 import type { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { ChatService } from '../chat/chat.service';
+import { resolveCorsOrigins } from '../config/cors.policy';
 
 type JwtPayload = {
   sub: string;
@@ -23,32 +24,13 @@ type JwtPayload = {
   bookingId?: string;
 };
 
-function resolveWsCorsOrigin(): boolean | string[] {
-  const raw =
-    process.env.APP_WEB_ORIGIN ||
-    process.env.CORS_ORIGIN ||
-    'http://localhost:5173,http://127.0.0.1:5173';
-  const list = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (list.length === 0 || list.includes('*')) {
-    return process.env.NODE_ENV === 'production' ? [] : true;
-  }
-  const origins = new Set(list);
-  if (process.env.NODE_ENV !== 'production') {
-    origins.add('http://localhost:5173');
-    origins.add('http://127.0.0.1:5173');
-    origins.add('http://localhost:4173');
-    origins.add('http://127.0.0.1:4173');
-  }
-  return [...origins];
-}
-
 @WebSocketGateway({
   namespace: '/ws',
   cors: {
-    origin: resolveWsCorsOrigin(),
+    origin: resolveCorsOrigins(
+      process.env.APP_WEB_ORIGIN || process.env.CORS_ORIGIN,
+      process.env.NODE_ENV || 'development',
+    ),
     credentials: true,
   },
 })

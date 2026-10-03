@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
 import { hashPassword } from '../common/crypto.util';
+import { RedisService } from '../redis/redis.module';
+import { staffActiveCacheKey } from '../auth/staff-session.policy';
 import { mapStaffUser } from './users.mapper';
 import {
   CreateStaffUserInput,
@@ -15,6 +17,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly redis: RedisService,
   ) {}
 
   async listStaff(role?: StaffRole) {
@@ -179,6 +182,10 @@ export class UsersService {
       entityId: id,
       diff: input,
     });
+
+    if (input.isActive !== undefined) {
+      await this.redis.del(staffActiveCacheKey(id));
+    }
 
     return mapStaffUser(user);
   }
