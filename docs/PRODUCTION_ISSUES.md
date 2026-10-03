@@ -1,6 +1,8 @@
 # ZEENGO — Production Issues
 
-Verified 2026-10-03. Only issues with evidence.
+Updated 2026-10-03 after Railway `243538f` / Vercel frontends.
+
+An issue is removed only after code/config → deployed → tested.
 
 ---
 
@@ -8,22 +10,19 @@ Verified 2026-10-03. Only issues with evidence.
 
 | ID | Issue | Evidence | Action |
 |---|---|---|---|
-| P0-1 | Railway backend is **12e8d93** (2026-09-30). Local `devel` has documents, audit, live/ready, ZN+phone bind, catalog browse that production does not fully serve. | Deploy list + HTTP: `/client/documents` 404, `/audit-logs` 404, `/health/live` 404, `/health/ready` 404 | Operator must approve push + Railway deploy of `devel` **after** the Nest `dist/main.js` fix |
-| P0-2 | Document files are **not durable** on Railway. No volume on `zeengo_backend`. `STORAGE_*` unset. Default is local disk. | `describe-service`: no mounts; variables do not include `STORAGE_PROVIDER` / `STORAGE_LOCAL_DIR` | Mount a volume **or** configure S3 **before** advertising documents |
-| P0-3 | **Was:** demo staff passwords reset to `1234567` on every boot. | `ensure-demo-staff.ts` upsert `update.passwordHash` + `DemoStaffBootstrap.onModuleInit` | **FIXED locally:** production skips bootstrap unless `ALLOW_DEMO_STAFF=true`; existing hashes are not overwritten |
-| P0-4 | **Was:** Stripe webhook accepted unsigned JSON when `STRIPE_WEBHOOK_SECRET` empty and `x-zeengo-dev-webhook: 1`. | `webhooks.service.ts` | **FIXED locally:** production always rejects unsigned webhooks (`STRIPE_WEBHOOK_NOT_CONFIGURED`) |
+| P0-5 | Historical demo staff accounts still accept the old shared password on production. New boots do **not** reset hashes (`Demo staff bootstrap skipped`). | Staff login against Railway succeeded with the historical demo account type | Operator must rotate every demo-named staff password in the live DB. Do not set `ALLOW_DEMO_STAFF`. |
+
+Closed this pass (were P0): Railway behind `12e8d93`; no volume; unsigned Stripe webhook; missing `dist/main.js`; CORS reflected `*`.
 
 ---
 
-## P1 — CRITICAL
+## P1 — CRITICAL (accepted or optional)
 
 | ID | Issue | Evidence | Action |
 |---|---|---|---|
-| P1-1 | Uncommitted `tsconfig.build.json` (`rootDir: ./src`). Docker `test -f dist/main.js` fails if `devel` is deployed without it. | Local nest build previously emitted `dist/src/main.js` | Commit this file before push. Do not commit `tsconfig.build.tsbuildinfo` |
-| P1-2 | Stripe / FCM / AI not configured on Railway. | Health: `missing_key` | Leave unset (honest 503 / configured:false) or add real keys. Do not fake success |
-| P1-3 | Client logout does not revoke client refresh JWTs (staff refresh is Redis-deleted). | `auth.service.ts` | Accept as 30d TTL or add a client denylist later — not changed this pass |
-| P1-4 | Staff JWT is not re-checked for `isActive` on every request. | `jwt.strategy.ts` | Refresh path re-checks; access TTL is 15m |
-| P1-5 | Website organic UI + hardening tests are uncommitted. | `Website_frontend` dirty tree | Commit only if that UI is part of the release |
+| P1-2 | Stripe / FCM / AI unset | ready `missing_key` | Leave unset. Honest 503 / configured:false |
+| P1-3 | ~~Client logout did not revoke refresh JWT~~ | After `243538f`, refresh after logout is 401 | **Closed** |
+| P1-4 | ~~Staff JWT ignored isActive until TTL~~ | JwtStrategy now Redis-caches isActive (45s); user update deletes cache | **Closed** |
 
 ---
 
@@ -31,26 +30,22 @@ Verified 2026-10-03. Only issues with evidence.
 
 | ID | Issue | Evidence | Action |
 |---|---|---|---|
-| P2-1 | S3 misconfig silently falls back to local disk. | `storage.service.ts` | Health reports `storage: local`. Operator must read it |
-| P2-2 | Stripe `sent` row can be created before a 503 if prod key is invalid. | `payments.service.ts` | Not “paid”. Clean orphans in ops if it happens |
-| P2-3 | No `_redirects` / `netlify.toml` in repo. Nested admin routes may 404 on a raw Netlify static host. | glob found none | Confirm Netlify “SPA fallback” in the host UI |
-| P2-4 | Kitchen JSON dry-run would create 193 + update 59. | Prior gate | Do **not** commit that import |
-| P2-5 | OTP/SMS is never sent. Register/forgot-password cannot work as SMS. | `auth.service.ts` `sendOtp` | Production login path is ZN+phone, not OTP |
+| P2-1 | S3 unset; local volume in use | ready `storage: local`; volume mounted `/data/documents` | Accept for this release |
+| P2-5 | OTP/SMS never sent | register/forgot cannot SMS | Production login is ZN+phone |
+| P2-6 | Socket.IO not event-proven from the live SPAs this pass | Origins now allowlisted | Connect from admin/website once and watch a booking event |
+| P2-7 | Lighthouse scores not recorded | CLI hung | Re-run Lighthouse on `zeengo-website.vercel.app` |
 
 ---
 
-## P3 — POLISH
+## Security decisions (not silent)
 
-| ID | Issue | Notes |
-|---|---|---|
-| P3-1 | Website visual pass is local-only | Not a production blocker |
-| P3-2 | Hardcoded bootstrap token exists for **non-production** seed | Production `POST /system/seed-demo` is 403 unless `SEED_BOOTSTRAP_TOKEN` is set (unset on Railway) |
+1. **Client refresh-token logout:** immediate revocation **is required**. Implemented: logout writes `refresh:revoked:{hash}` in Redis for the refresh TTL; refresh checks the denylist.
+2. **Staff deactivation:** access JWTs **must** stop working without waiting 15m. Implemented: JwtStrategy reads `staff:active:{id}` (45s Redis cache) and loads Prisma on miss. `users.update` deletes the cache when `isActive` changes.
 
 ---
 
-## Intentionally not “fixed”
+## Intentionally not done
 
-- Did not rewrite booking, catalog, or admin UI.
-- Did not deploy, push, migrate Railway, or import Excel.
-- Did not reset or seed the production database.
-- Did not add fake Stripe/FCM success.
+- No Excel import, no production seed, no `prisma db push`
+- Stripe/FCM/AI left unconfigured
+- No password rotation of live staff (operator-owned)

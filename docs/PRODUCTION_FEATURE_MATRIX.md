@@ -1,57 +1,40 @@
 # ZEENGO — Production Feature Matrix
 
-Verified 2026-10-03. This is not a code-existence checklist.
+Verified 2026-10-03 against deployed Railway + Vercel.
 
-**Local API:** `devel` (health includes `schema` + `storage`) — live/ready **200**, `LIVE_E2E` **12/12**.  
-**Railway production:** `zeengo_backend` last SUCCESS **12e8d93** (2026-09-30). `/system/health` **200**. `/system/health/live`, `/ready`, `/audit-logs`, `/client/documents` **404**.  
-**Admin / website:** local `devel` ahead of origin. Netlify/customer hosts were not redeployed in this pass.
+**Backend:** `243538f` on Railway `2d4442ca` · `https://zeengobackend-production-d058.up.railway.app`  
+**Admin:** `https://zeengo-admin.vercel.app` · no `localhost:3000` in JS · Railway API present  
+**Website:** `https://zeengo-website.vercel.app` · no `localhost:3000` in JS · Fraunces + IBM Plex + `#12372A`
 
-Column **Production Tested** means the *deployed Railway* environment unless marked Local.
+Status is only one of: **VERIFIED (deployed)** · **PARTIAL** · **BLOCKED** · **OPTIONAL — NOT CONFIGURED** · **NOT IMPLEMENTED**.
 
-| Feature | UI | API | DB | Auth | Permissions | Validation | Error Handling | Production Tested | Status |
-| ------- | -- | --- | -- | ---- | ----------- | ---------- | -------------- | ----------------- | ------ |
-| Staff login / refresh / logout | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES · Railway health only | PARTIAL |
-| Staff token expiry / invalid | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | VERIFIED |
-| Customer ZN + phone login | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Customer session refresh | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Customer logout (client refresh JWT not revoked) | PASS | PARTIAL | PASS | PARTIAL | PASS | PASS | PASS | Local YES | PARTIAL |
-| Driver login | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Driver booking IDOR | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES (IDOR matrix) | PARTIAL |
-| Support 403 vs dashboard/finance/users/audit | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Unauthenticated protected API | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Railway bookings **401** | VERIFIED |
-| Customer request → ZN → pending | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| OPS confirm request | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| My Trip after confirm | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Customer A cannot read B booking/docs | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Documents upload/list/download/delete | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Railway **404** | BLOCKED |
-| Document durable storage | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Railway: no volume, `STORAGE_*` unset | BLOCKED |
-| Public catalog home | PASS | PASS | PASS | Public | PASS | PASS | PASS | Railway `/client/v2/home` **200** | PARTIAL |
-| Hotels / rooms / activities browse | PASS | PASS | PASS | Public | PASS | PASS | PASS | Local YES · Railway incomplete vs local | PARTIAL |
-| Admin catalog edit | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Dashboard Collected (all-time paid) | PASS | PASS | PASS | PASS | Support denied | PASS | PASS | Local YES | PARTIAL |
-| Payments list / cash / paid_at | PASS | PASS | PASS | PASS | Support denied | PASS | PASS | Local YES | PARTIAL |
-| Stripe payment links | PASS | PASS | PASS | PASS | PASS | PASS | 503 when unset | Railway `stripe: missing_key` | BLOCKED |
-| Stripe webhook (unsigned rejected in prod) | n/a | FIXED | PASS | PASS | PASS | PASS | PASS | Not on Railway yet | FIXED |
-| FCM / push | PASS | PASS | PASS | PASS | PASS | PASS | `configured:false` | Railway `fcm: missing_key` | BLOCKED |
-| In-app notifications | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local only | PARTIAL |
-| Socket.IO `/ws` | PASS | PASS | n/a | PASS | PASS | PASS | PASS | Local only | PARTIAL |
-| Audit logs API + admin page | PASS | PASS | PASS | PASS | admin/ops only | PASS | PASS | Railway **404** | PARTIAL |
-| Booking history | PASS | PASS | PASS | PASS | PASS | PASS | PASS | Local YES | PARTIAL |
-| Health live | n/a | PASS | n/a | Public | n/a | n/a | PASS | Railway **404** | PARTIAL |
-| Health ready (Postgres+Redis+schema) | n/a | PASS | PASS | Public | n/a | n/a | 503 if down | Railway **404** | PARTIAL |
-| Combined health | n/a | PASS | PASS | Public | n/a | n/a | PASS | Railway **200** | VERIFIED |
-| Demo staff boot password reset | n/a | FIXED | PASS | PASS | n/a | n/a | n/a | Not deployed | FIXED |
-| OTP / SMS | MISSING | MISSING | PARTIAL | n/a | n/a | PARTIAL | n/a | No | NOT IMPLEMENTED |
-| AI / Anthropic | PASS | PASS | n/a | PASS | admin/ops | PASS | missing_key | Railway `claude: missing_key` | BLOCKED |
-| Kitchen / Excel import | PASS | PASS | PASS | PASS | admin/ops | PASS | PASS | Dry-run only · not committed | BLOCKED |
-| Customer OTP-less ZN-only login | n/a | Off unless env | PASS | Weak if on | n/a | PASS | PASS | `ALLOW_ZN_ONLY_LOGIN` default false | VERIFIED |
-| Netlify SPA nested routes | Unknown | n/a | n/a | n/a | n/a | n/a | n/a | No `_redirects` in repo | PARTIAL |
-| CORS / APP_WEB_ORIGIN | n/a | PASS | n/a | n/a | n/a | PASS | PASS | Railway SET (value not printed) | PARTIAL |
-
-## How to read Status
-
-- **VERIFIED** — real workflow tested successfully in the environment named.
-- **FIXED** — found this session, corrected in local `devel`, unit-tested; **not on Railway**.
-- **PARTIAL** — works on local `devel`, missing or older on Railway, or optional infra unset.
-- **BLOCKED** — cannot be called production-ready until infra/config/deploy exists.
-- **NOT IMPLEMENTED** — no production path (OTP SMS is not sent).
+| Feature | Scope | Deployed? | UI works | API works | Auth/permissions | Error states | Mobile | Evidence | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Health live | Required | Yes | n/a | 200 | Public | n/a | n/a | `GET /system/health/live` | **VERIFIED (deployed)** |
+| Health ready (Postgres+Redis+schema) | Required | Yes | n/a | 200 | Public; Stripe/FCM/AI missing_key does not fail | n/a | n/a | ready checks operational; storage local | **VERIFIED (deployed)** |
+| Public catalog / home | Required | Yes | Yes | Yes | Public | Yes | Yes | Website Around: 767 hotels, 164 activities, live FX | **VERIFIED (deployed)** |
+| Offering detail | Required | Yes | Yes | Yes | Public | Price on request | Yes | `/hotels/25865df8-…` Adagio + Add to trip | **VERIFIED (deployed)** |
+| Customer request → ZN pending | Required | Yes | Yes | Yes | Public create | 4xx on bad body | Yes | Labeled TEST A `ZN0488` pending then confirmed | **VERIFIED (deployed)** |
+| ZN + phone login | Required | Yes | Yes | Yes | Phone bind | Wrong ZN/phone 401 | Yes | Website `/login` → `/trip` for TEST A | **VERIFIED (deployed)** |
+| My Trip | Required | Yes | Yes | Yes | Own booking only | Empty itinerary copy | Yes | ZN0488 dates, 2 travellers, hotel night, ₽0 due, voucher | **VERIFIED (deployed)** |
+| Customer isolation / IDOR | Required | Yes | n/a | Yes | A 403 on B booking/doc | 401 anon | n/a | API: A/B 403, anon 401, unassigned driver 403 | **VERIFIED (deployed)** |
+| OPS confirm request | Required | Yes | Admin request review | Yes | Staff write roles | 404 unknown id | n/a | TEST A confirmed; customer saw confirmed | **VERIFIED (deployed)** |
+| Documents upload/list/download | Required | Yes | My Trip View | Yes | Staff write; client own | exe 400 | Yes | voucher 32 B after redeploy | **VERIFIED (deployed)** |
+| Durable storage | Required | Yes | n/a | Yes | Authorized download | n/a | n/a | Volume `/data/documents`; file survived `243538f` deploy | **VERIFIED (deployed)** |
+| Audit logs | Required | Yes | Admin `/audit-logs` SPA | Yes | admin/ops; support 403 | 401 anon | n/a | API 200; history n=4 | **VERIFIED (deployed)** |
+| Staff login / wrong password / refresh | Required | Yes | Admin login | Yes | JWT | 401 wrong password | Yes | 201 / 401 / refresh 201 | **VERIFIED (deployed)** |
+| Support RBAC | Required | Yes | Hidden nav | Yes | 403 dashboard/payments/audit | 403 | n/a | support token 403 | **VERIFIED (deployed)** |
+| Driver login + unassigned 403 | Required | Yes | Driver home | Yes | Assignment IDOR | 403 | n/a | driver 201; doc 403 | **VERIFIED (deployed)** |
+| Payments history / collected / paid_at | Required | Yes | Finance pages | Yes | Support denied | 200 empty ok | n/a | `/payments/history` 200 | **VERIFIED (deployed)** |
+| In-app notifications | Required | Yes | Admin list | Yes | Auth | 200 | n/a | `/notifications` 200 | **VERIFIED (deployed)** |
+| Client refresh revocation | Required | Yes | Sign out | Yes | Logout denylist | 401 after logout | n/a | refresh 201 then logout 201 then 401 | **VERIFIED (deployed)** |
+| Staff isActive on access JWT | Required | Yes | n/a | Yes | Redis cache 45s | 401 inactive | n/a | Deployed `jwt.strategy.ts`; deactivate clears cache | **VERIFIED (deployed)** |
+| CORS allowlist | Required | Yes | Browser OK | Yes | Website+admin only | evil Origin none | n/a | After `243538f`: evil.example → none | **VERIFIED (deployed)** |
+| Stripe links / webhook | Optional | No keys | Config-aware | 503 unsigned | n/a | Honest missing | n/a | `STRIPE_WEBHOOK_NOT_CONFIGURED` | **OPTIONAL — NOT CONFIGURED** |
+| FCM / push | Optional | No keys | Honest | missing_key | n/a | n/a | n/a | ready `fcm: missing_key` | **OPTIONAL — NOT CONFIGURED** |
+| Anthropic AI | Optional | No keys | Admin pages exist | missing_key | admin/ops | n/a | n/a | ready `claude: missing_key` | **OPTIONAL — NOT CONFIGURED** |
+| OTP / SMS | Out of scope | No sender | n/a | Not sent | n/a | n/a | n/a | ZN+phone is the login path | **NOT IMPLEMENTED** |
+| Kitchen Excel import | Not this release | No | Admin dry-run | Yes local | admin/ops | n/a | n/a | Not run on production | **OPTIONAL — NOT CONFIGURED** |
+| Socket.IO from deployed SPAs | Required | Yes code | Connect path exists | `/ws` | JWT | n/a | n/a | CORS origins include both Vercel hosts; no live event captured this pass | **PARTIAL** |
+| Lighthouse scores | Required doc | Site live | n/a | n/a | n/a | n/a | n/a | CLI hung; scores not recorded | **PARTIAL** |
+| Historical demo staff password | Security | Yes accounts | Login works | Yes | Old shared hash | n/a | n/a | Production still accepts historical demo staff login | **BLOCKED** |

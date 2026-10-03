@@ -1,7 +1,8 @@
 # ZEENGO — Production Release Scope
 
 Date: 2026-10-03  
-Decision log for what ships from local `devel` to Railway / admin / website hosts.
+Shipped: backend `243538f` (Railway `2d4442ca`), website `02741f5` (Vercel), admin `9d8519d` (Vercel).  
+Decision log for what shipped from `devel` to Railway / Vercel.
 
 ---
 
