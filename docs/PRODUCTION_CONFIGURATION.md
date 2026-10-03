@@ -1,23 +1,48 @@
 # PRODUCTION CONFIGURATION
 
-## Required
+Verified against Railway project **overflowing-elegance** / service **zeengo_backend** / environment **production** on 2026-10-03.
 
-| Variable | Purpose |
+Values are **never** printed. Status only: SET / MISSING / NOT REQUIRED.
+
+---
+
+## Railway variables (live service)
+
+| Variable | Required? | Railway | Purpose |
+|---|---|---|---|
+| `DATABASE_URL` | YES | SET | Postgres |
+| `REDIS_URL` | YES | SET | Cache / refresh / health |
+| `JWT_SECRET` | YES | SET | Access JWT |
+| `JWT_REFRESH_SECRET` | YES | SET | Refresh JWT |
+| `JWT_ACCESS_TTL` | optional | SET | Default 15m if unset |
+| `JWT_REFRESH_TTL` | optional | SET | Default 30d if unset |
+| `NODE_ENV` | YES | SET | Must be `production` |
+| `APP_WEB_ORIGIN` | YES | SET | CORS allowlist (admin + website origins) |
+| `STORAGE_PROVIDER` | YES for durable files | MISSING (defaults local) | `local` or `s3` |
+| `STORAGE_LOCAL_DIR` | if local | MISSING | Must be a mounted volume path |
+| `STORAGE_BUCKET` + keys + region | if s3 | MISSING | Object storage |
+| `STRIPE_SECRET_KEY` | optional | MISSING | Payment links → 503 in prod |
+| `STRIPE_WEBHOOK_SECRET` | optional | MISSING | Webhooks. Local code now **rejects** unsigned events in production |
+| FCM JSON / path | optional | MISSING | Push → `configured:false` |
+| `ANTHROPIC_API_KEY` | optional | MISSING | AI → `missing_key` |
+| `SEED_BOOTSTRAP_TOKEN` | keep unset | MISSING (correct) | Enables `POST /system/seed-demo` in production |
+| `ALLOW_DEMO_STAFF` | keep unset | MISSING (correct) | New. Production boot will not seed demo staff |
+| `ALLOW_ZN_ONLY_LOGIN` | keep unset | not listed | If `true`, phone check is skipped |
+
+---
+
+## Railway runtime
+
+| Item | Status |
 |---|---|
-| `DATABASE_URL` | PostgreSQL |
-| `REDIS_URL` | Bull + health |
-| `JWT_SECRET` | Access tokens (≥16) |
-| `JWT_REFRESH_SECRET` | Refresh tokens (≥16) |
-| `NODE_ENV` | `production` in prod |
+| Start command | `sh scripts/start-prod.sh` (migrate deploy, then Nest) |
+| Last SUCCESS deploy | `12e8d93` · 2026-09-30 |
+| Domain | `https://zeengobackend-production-d058.up.railway.app` |
+| Volume mounts | **none** |
+| Postgres service | present |
+| Redis service | present |
 
-## Strongly required in production
-
-| Variable | Behavior if missing |
-|---|---|
-| `STRIPE_SECRET_KEY` | Stripe link create returns **503** (no fake URL) |
-| `STRIPE_WEBHOOK_SECRET` | Webhooks fail verification |
-| `FCM_SERVICE_ACCOUNT_JSON` or `PATH` | Push returns `configured:false` / not delivered |
-| `APP_WEB_ORIGIN` / CORS | Browser access |
+---
 
 ## Storage
 
@@ -28,28 +53,43 @@
 | `STORAGE_BUCKET` | Required when `STORAGE_PROVIDER=s3` |
 | `STORAGE_REGION` | S3 region |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | S3 credentials |
-| `STORAGE_ENDPOINT` | Optional S3-compatible endpoint (Railway bucket / MinIO) |
+| `STORAGE_ENDPOINT` | Optional S3-compatible endpoint |
 
 Downloads always go through authorized API endpoints. Do not expose raw public object URLs.
 
-## Optional
-
-`ANTHROPIC_API_KEY`, VIP price, Stripe link expiry hours.
-
-`SEED_BOOTSTRAP_TOKEN` — required to enable `POST /system/seed-demo` when `NODE_ENV=production`. Leave unset to keep the endpoint disabled.
-
-## Development-only behaviors
-
-- Stripe DEV placeholder URL `https://pay.zeengo.local/dev/{id}` **only when NODE_ENV≠production**
-- FCM may be unconfigured; logs `fcm_not_configured`
+---
 
 ## Health
 
-| Path | Meaning |
-|---|---|
-| `GET /api/v1/system/health/live` | Process is up |
-| `GET /api/v1/health/live` | Same alias |
-| `GET /api/v1/system/health/ready` | Postgres + Redis + `bookings.children_count` present. 503 if not |
-| `GET /api/v1/system/health` | Combined status + config flags (no secrets) |
+| Path | Local `devel` | Railway `12e8d93` |
+|---|---|---|
+| `GET /api/v1/system/health` | 200 + schema/storage flags | 200 (no schema/storage keys) |
+| `GET /api/v1/system/health/live` | 200 | **404** |
+| `GET /api/v1/system/health/ready` | 200 (Postgres + Redis + `bookings.children_count`) | **404** |
+| `GET /api/v1/health/live` | alias | missing |
+
+Stripe / FCM / AI `missing_key` does **not** fail readiness on local `devel`.
+
+---
+
+## Frontends
+
+| App | Dev API | Production API env |
+|---|---|---|
+| Admin (`frontend`) | `VITE_API_BASE_URL_LOCAL` | `VITE_API_BASE_URL_PRODUCTION` → Railway origin |
+| Website (`Website_frontend`) | same | same |
+
+Build/prod does not use localhost. Fallback origin in source is the Railway URL, not `127.0.0.1`.
+
+Netlify: no `netlify.toml` / `_redirects` in this repo. Confirm SPA fallback on the host.
+
+---
+
+## Development-only behaviors (must not apply in production)
+
+- Stripe placeholder URL `https://pay.zeengo.local/dev/{id}` only when `NODE_ENV≠production`
+- Unsigned Stripe webhook only when `NODE_ENV≠production` **and** `x-zeengo-dev-webhook: 1`
+- Demo staff password reset on boot only when `NODE_ENV≠production`
+- `POST /system/seed-demo` in production requires `SEED_BOOTSTRAP_TOKEN` (keep unset)
 
 Never commit real secrets. Prefer platform secret stores.
