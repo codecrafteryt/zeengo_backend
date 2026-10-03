@@ -18,7 +18,9 @@ export const DEMO_STAFF: Array<{
 export async function ensureDemoStaff(
   prisma: PrismaClient,
   password = DEMO_STAFF_PASSWORD,
+  options: { resetPasswords?: boolean } = {},
 ): Promise<void> {
+  const resetPasswords = options.resetPasswords !== false;
   const passwordHash = await argon2.hash(password);
 
   for (const account of DEMO_STAFF) {
@@ -26,10 +28,10 @@ export async function ensureDemoStaff(
       where: { email: account.email },
       update: {
         fullName: account.fullName,
-        passwordHash,
         role: account.role,
         isActive: true,
         deletedAt: null,
+        ...(resetPasswords ? { passwordHash } : {}),
       },
       create: {
         fullName: account.fullName,

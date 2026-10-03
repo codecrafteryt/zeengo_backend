@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { PaymentsService } from '../payments/payments.service';
+import { resolveStripeWebhookMode } from './stripe-webhook.policy';
 
 const OPENED_EVENT_HINTS = ['opened', 'view', 'created'] as const;
 
@@ -30,8 +31,16 @@ export class WebhooksService {
     parsedBody: unknown,
   ): Stripe.Event {
     const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET', '');
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    const mode = resolveStripeWebhookMode({
+      nodeEnv,
+      webhookSecret,
+      hasRawBody: Boolean(rawBody),
+      hasSignature: Boolean(signature),
+      devHeader,
+    });
 
-    if (webhookSecret) {
+    if (mode === 'verify') {
       if (!rawBody || !signature) {
         throw AppError.validation('Missing Stripe signature or raw body');
       }
@@ -45,13 +54,20 @@ export class WebhooksService {
       );
     }
 
-    if (devHeader !== '1') {
-      throw AppError.unauthorized(
-        'Dev webhook requires header x-zeengo-dev-webhook: 1',
+    if (mode === 'dev-unsigned') {
+      return parsedBody as Stripe.Event;
+    }
+
+    if (nodeEnv === 'production') {
+      throw AppError.serviceUnavailable(
+        'STRIPE_WEBHOOK_NOT_CONFIGURED',
+        'Stripe webhooks are not configured',
       );
     }
 
-    return parsedBody as Stripe.Event;
+    throw AppError.unauthorized(
+      'Dev webhook requires header x-zeengo-dev-webhook: 1',
+    );
   }
 
   async handleStripeEvent(event: Stripe.Event) {
