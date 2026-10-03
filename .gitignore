@@ -52,6 +52,9 @@ lerna-debug.log*
 *-firebase-adminsdk-*.json
 *firebase-adminsdk*.json
 
+# Local document storage (ephemeral unless a volume is mounted)
+/storage
+
 # temp directory
 .temp
 .tmp

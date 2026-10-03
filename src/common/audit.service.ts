@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async log(params: {
@@ -13,15 +15,21 @@ export class AuditService {
     entityId?: string | null;
     diff?: unknown;
   }) {
-    await this.prisma.auditLog.create({
-      data: {
-        actorType: params.actorType,
-        actorId: params.actorId ?? null,
-        action: params.action,
-        entity: params.entity,
-        entityId: params.entityId ?? null,
-        diff: (params.diff ?? {}) as object,
-      },
-    });
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          actorType: params.actorType,
+          actorId: params.actorId ?? null,
+          action: params.action,
+          entity: params.entity,
+          entityId: params.entityId ?? null,
+          diff: (params.diff ?? {}) as object,
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `Audit write failed for ${params.action}: ${(err as Error).message}`,
+      );
+    }
   }
 }

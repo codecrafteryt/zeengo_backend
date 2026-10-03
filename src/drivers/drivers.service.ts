@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -61,6 +62,7 @@ export class DriversService {
     private readonly redis: RedisService,
     private readonly realtime: RealtimeEmitter,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(query: ListDriversQuery) {
@@ -422,6 +424,18 @@ export class DriversService {
         },
       });
       this.emitAssignment('assignment.created', mapped);
+      await this.audit.log({
+        actorType: 'staff',
+        actorId: assignedBy,
+        action: 'assignment.create',
+        entity: 'driver_assignment',
+        entityId: row.id,
+        diff: {
+          bookingId: row.bookingId,
+          znCode: booking.znCode,
+          driverId: dto.driverId,
+        },
+      });
       return mapped;
     } catch (err) {
       if (

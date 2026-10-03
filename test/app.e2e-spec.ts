@@ -19,6 +19,16 @@ describe('Zeengo API (e2e)', () => {
         onModuleInit: async () => undefined,
         onModuleDestroy: async () => undefined,
         $queryRaw: async () => [{ '?column?': 1 }],
+        staffUser: {
+          upsert: async (args: { where: { email: string } }) => ({
+            id: '00000000-0000-0000-0000-000000000001',
+            email: args.where.email,
+            role: 'admin',
+          }),
+        },
+        driverProfile: {
+          upsert: async () => ({ id: '00000000-0000-0000-0000-000000000002' }),
+        },
       })
       .overrideProvider(REDIS_CLIENT)
       .useValue({
@@ -46,6 +56,15 @@ describe('Zeengo API (e2e)', () => {
     if (app) {
       await app.close();
     }
+  });
+
+  it('GET /api/v1/system/health/live returns 200', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/system/health/live')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.data?.status || res.body.status).toBe('live');
+      });
   });
 
   it('GET /api/v1/system/health returns 200', () => {

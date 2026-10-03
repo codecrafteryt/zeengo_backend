@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../common/audit.service';
 import {
   CreateItineraryItemDto,
   DailyOperationsQuery,
@@ -32,6 +33,7 @@ export class ItinerariesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
   ) {}
 
   async getByBookingId(bookingId: string, user: AuthPrincipal) {
@@ -110,6 +112,15 @@ export class ItinerariesService {
       },
     });
 
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'itinerary.create',
+      entity: 'itinerary_item',
+      entityId: row.id,
+      diff: { bookingId, title: row.title, dayNumber: row.dayNumber },
+    });
+
     return mapItineraryItem(row);
   }
 
@@ -165,14 +176,31 @@ export class ItinerariesService {
       },
     });
 
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'itinerary.update',
+      entity: 'itinerary_item',
+      entityId: row.id,
+      diff: { bookingId: row.bookingId, title: row.title, status: row.status },
+    });
+
     return mapItineraryItem(row);
   }
 
   async deleteItem(itemId: string, user: AuthPrincipal) {
     this.assertStaffWrite(user);
-    await this.ensureItemExists(itemId);
+    const existing = await this.ensureItemExists(itemId);
 
     await this.prisma.itineraryItem.delete({ where: { id: itemId } });
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'itinerary.delete',
+      entity: 'itinerary_item',
+      entityId: itemId,
+      diff: { bookingId: existing.bookingId, title: existing.title },
+    });
     return { deleted: true };
   }
 

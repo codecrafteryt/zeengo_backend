@@ -22,14 +22,63 @@ export class SystemController {
   ) {}
 
   @Public()
+  @Get('health/live')
+  live() {
+    return { status: 'live' };
+  }
+
+  @Public()
+  @Get('health/ready')
+  async ready() {
+    const checks = await this.dependencyChecks();
+    const ready =
+      checks.postgres.status === 'operational' &&
+      checks.redis.status === 'operational' &&
+      checks.schema.status === 'operational';
+    if (!ready) {
+      throw AppError.serviceUnavailable(
+        checks.schema.status === 'incomplete' ? 'SCHEMA_DRIFT' : 'NOT_READY',
+        'API is not ready',
+        { checks },
+      );
+    }
+    return { status: 'ready', checks };
+  }
+
+  @Public()
   @Get('health')
   async health() {
-    const checks: Record<string, { status: string; detail?: string }> = {
+    const checks = await this.dependencyChecks();
+    const healthy =
+      checks.postgres.status === 'operational' &&
+      checks.redis.status === 'operational';
+
+    return {
+      status: healthy ? 'ok' : 'degraded',
+      checks,
+      websocket: 'see /ws namespace',
+    };
+  }
+
+  private async dependencyChecks() {
+    const stripeKey = (this.config.get<string>('STRIPE_SECRET_KEY') || '').trim();
+    const checks: Record<string, { status: string }> = {
       api: { status: 'operational' },
       postgres: { status: 'unknown' },
       redis: { status: 'unknown' },
+      schema: { status: 'unknown' },
+      storage: {
+        status: (this.config.get<string>('STORAGE_PROVIDER') || 'local') === 's3'
+          ? this.config.get('STORAGE_BUCKET')
+            ? 'configured'
+            : 'missing_key'
+          : 'local',
+      },
       stripe: {
-        status: this.config.get('STRIPE_SECRET_KEY') ? 'configured' : 'missing_key',
+        status:
+          stripeKey && stripeKey.startsWith('sk_') && !stripeKey.includes('replace')
+            ? 'configured'
+            : 'missing_key',
       },
       claude: {
         status: this.config.get('ANTHROPIC_API_KEY') ? 'configured' : 'missing_key',
@@ -47,32 +96,33 @@ export class SystemController {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       checks.postgres = { status: 'operational' };
-    } catch (e) {
-      checks.postgres = {
-        status: 'down',
-        detail: e instanceof Error ? e.message : 'error',
-      };
+    } catch {
+      checks.postgres = { status: 'down' };
     }
 
     try {
       const pong = await this.redis.raw.ping();
       checks.redis = { status: pong === 'PONG' ? 'operational' : 'down' };
-    } catch (e) {
-      checks.redis = {
-        status: 'down',
-        detail: e instanceof Error ? e.message : 'error',
-      };
+    } catch {
+      checks.redis = { status: 'down' };
     }
 
-    const healthy =
-      checks.postgres.status === 'operational' &&
-      checks.redis.status === 'operational';
+    try {
+      const rows = await this.prisma.$queryRaw<Array<{ ok: number }>>`
+        SELECT 1 AS ok
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'bookings'
+          AND column_name = 'children_count'
+      `;
+      checks.schema = {
+        status: rows.length > 0 ? 'operational' : 'incomplete',
+      };
+    } catch {
+      checks.schema = { status: 'incomplete' };
+    }
 
-    return {
-      status: healthy ? 'ok' : 'degraded',
-      checks,
-      websocket: 'see /ws namespace',
-    };
+    return checks;
   }
 
   /**
@@ -83,9 +133,12 @@ export class SystemController {
   @Public()
   @Post('seed-demo')
   async seedDemoEndpoint(@Body() body: { token?: string }) {
-    const expected =
-      this.config.get<string>('SEED_BOOTSTRAP_TOKEN')?.trim() ||
-      BOOTSTRAP_SEED_TOKEN;
+    const configured = this.config.get<string>('SEED_BOOTSTRAP_TOKEN')?.trim();
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    if (nodeEnv === 'production' && !configured) {
+      throw AppError.forbidden('Demo seed is disabled in production');
+    }
+    const expected = configured || BOOTSTRAP_SEED_TOKEN;
     if (!body?.token || body.token !== expected) {
       throw AppError.unauthorized('Invalid bootstrap token');
     }

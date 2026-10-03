@@ -941,6 +941,53 @@ export class BookingsService {
     return rows.map(mapPayment);
   }
 
+  async listHistory(bookingId: string, user: AuthPrincipal) {
+    await this.ensureBookingReadable(bookingId, user);
+
+    const related = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        payments: { select: { id: true } },
+        sosAlerts: { select: { id: true } },
+        editRequests: { select: { id: true } },
+        vendorBookings: { select: { id: true } },
+        documents: { select: { id: true } },
+        itineraryItems: { select: { id: true } },
+        driverAssignments: { select: { id: true } },
+        tasks: { select: { id: true } },
+      },
+    });
+
+    const relatedIds = [
+      bookingId,
+      ...(related?.payments.map((row) => row.id) ?? []),
+      ...(related?.sosAlerts.map((row) => row.id) ?? []),
+      ...(related?.editRequests.map((row) => row.id) ?? []),
+      ...(related?.vendorBookings.map((row) => row.id) ?? []),
+      ...(related?.documents.map((row) => row.id) ?? []),
+      ...(related?.itineraryItems.map((row) => row.id) ?? []),
+      ...(related?.driverAssignments.map((row) => row.id) ?? []),
+      ...(related?.tasks.map((row) => row.id) ?? []),
+    ];
+
+    const rows = await this.prisma.auditLog.findMany({
+      where: { entityId: { in: relatedIds } },
+      orderBy: { createdAt: 'desc' },
+      take: 80,
+    });
+
+    return rows.map((row) => ({
+      id: String(row.id),
+      actorType: row.actorType,
+      actorId: row.actorId,
+      action: row.action,
+      entity: row.entity,
+      entityId: row.entityId,
+      createdAt: row.createdAt.toISOString(),
+      summary: this.auditSummary(row.action),
+    }));
+  }
+
   async getPaidAmount(bookingId: string): Promise<number> {
     const cacheKey = `booking:${bookingId}:paid`;
     const cached = await this.redis.get(cacheKey);
@@ -1038,6 +1085,33 @@ export class BookingsService {
     if (user.type !== 'staff' || !user.role || !STAFF_WRITE_ROLES.includes(user.role)) {
       throw AppError.forbidden();
     }
+  }
+
+  private auditSummary(action: string) {
+    const labels: Record<string, string> = {
+      'booking.created': 'Booking created',
+      'booking.updated': 'Booking updated',
+      'booking.customer_request_created': 'Customer request submitted',
+      'booking.customer_request_reviewed': 'Customer request reviewed',
+      'booking.customer_request_confirmed': 'Customer request confirmed',
+      'booking.customer_request_rejected': 'Customer request rejected',
+      'auth.client_zn_login': 'Client signed in with ZN',
+      'payment.record_cash': 'Cash payment recorded',
+      'payment.create_stripe_link': 'Stripe link created',
+      'payment.stripe_webhook': 'Stripe payment updated',
+      'sos.create': 'SOS opened',
+      'sos.resolve': 'SOS resolved',
+      'edit_request.approve': 'Edit request approved',
+      'edit_request.reject': 'Edit request rejected',
+      'itinerary.create': 'Itinerary item added',
+      'itinerary.update': 'Itinerary item updated',
+      'itinerary.delete': 'Itinerary item removed',
+      'assignment.create': 'Driver assigned',
+      'task.create': 'Task created',
+      'document.upload': 'Document uploaded',
+      'document.delete': 'Document deleted',
+    };
+    return labels[action] ?? action.replace(/[._]/g, ' ');
   }
 
   private assertBookingAccess(

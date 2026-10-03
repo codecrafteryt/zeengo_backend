@@ -24,10 +24,15 @@ export class FinanceService {
   async summary() {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(startOfToday);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const paidTodayWhere = {
       status: PaymentStatus.paid,
-      paidAt: { gte: startOfToday },
+      OR: [
+        { paidAt: { gte: startOfToday, lt: tomorrow } },
+        { paidAt: null, createdAt: { gte: startOfToday, lt: tomorrow } },
+      ],
     };
 
     const [todayAgg, stripeAgg, cashAgg, pendingAgg, pendingCount, paidAll, stripeAll, cashAll] =

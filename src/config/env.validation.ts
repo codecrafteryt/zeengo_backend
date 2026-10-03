@@ -22,6 +22,16 @@ export const envSchema = z.object({
   FCM_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
   FCM_SERVICE_ACCOUNT_PATH: z.string().optional().default(''),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional().default(''),
+  STORAGE_PROVIDER: z
+    .string()
+    .optional()
+    .transform((v) => (v === 's3' ? 's3' : 'local')),
+  STORAGE_LOCAL_DIR: z.string().optional().default(''),
+  STORAGE_BUCKET: z.string().optional().default(''),
+  STORAGE_REGION: z.string().optional().default(''),
+  STORAGE_ACCESS_KEY: z.string().optional().default(''),
+  STORAGE_SECRET_KEY: z.string().optional().default(''),
+  STORAGE_ENDPOINT: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

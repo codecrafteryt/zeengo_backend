@@ -67,13 +67,13 @@ export function mapPayment(row: PaymentWithCollector): PaymentDto {
 
 export function mapPaymentHistoryItem(
   row: PaymentWithCollector & {
-    booking: { znCode: string; client: { fullName: string } };
+    booking?: { znCode: string; client?: { fullName: string } | null } | null;
   },
 ): PaymentHistoryItemDto {
   return {
     ...mapPayment(row),
-    znCode: row.booking.znCode,
-    clientName: row.booking.client.fullName,
+    znCode: row.booking?.znCode ?? '—',
+    clientName: row.booking?.client?.fullName ?? '—',
   };
 }
 

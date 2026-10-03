@@ -31,8 +31,8 @@ import {
 import { mapEodReport, mapScheduleItem } from './dashboard.mapper';
 
 /** Short TTL — dashboard cards refresh via realtime invalidation + this cache. */
-const SUMMARY_CACHE_KEY = 'dashboard:summary:v2';
-const OVERVIEW_CACHE_KEY = 'dashboard:overview:v1';
+const SUMMARY_CACHE_KEY = 'dashboard:summary:v3';
+const OVERVIEW_CACHE_KEY = 'dashboard:overview:v3';
 const ALERTS_CACHE_KEY = 'dashboard:alerts:v1';
 const CACHE_TTL_SECONDS = 20;
 

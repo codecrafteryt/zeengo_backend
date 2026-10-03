@@ -164,6 +164,12 @@ export class BookingsController {
     return this.bookingsService.listPayments(id, user);
   }
 
+  @Get(':id/history')
+  @Roles(...BOOKING_READ_ROLES)
+  listHistory(@Param('id') id: string, @CurrentUser() user: AuthPrincipal) {
+    return this.bookingsService.listHistory(id, user);
+  }
+
   @Get(':id/vendor-bookings')
   @Roles(...BOOKING_WRITE_ROLES, StaffRole.splizer)
   listVendorBookings(

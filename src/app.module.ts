@@ -37,6 +37,9 @@ import { OperationsModule } from './operations/operations.module';
 import { ClientPortalModule } from './client-portal/client-portal.module';
 import { ClientV2Module } from './client-v2/client-v2.module';
 import { MasterDataModule } from './master-data/master-data.module';
+import { StorageModule } from './storage/storage.module';
+import { DocumentsModule } from './documents/documents.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
@@ -49,6 +52,7 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     CommonModule,
     PrismaModule,
     RedisModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     SettingsModule,
@@ -76,6 +80,8 @@ import { ResponseEnvelopeInterceptor } from './common/interceptors/response-enve
     ClientPortalModule,
     ClientV2Module,
     MasterDataModule,
+    DocumentsModule,
+    AuditLogsModule,
     EmailsModule,
     AiModule,
   ],

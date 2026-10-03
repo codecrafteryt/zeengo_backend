@@ -3,6 +3,7 @@ import { Prisma, StaffRole, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../common/audit.service';
 import { AppError } from '../common/errors/app-error';
 import { AuthPrincipal } from '../common/decorators/current-user.decorator';
 import {
@@ -41,6 +42,7 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeEmitter,
     private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(query: ListTasksQuery, user: AuthPrincipal) {
@@ -126,6 +128,14 @@ export class TasksService {
 
     const created = mapTask(row);
     this.realtime.emit('task.updated', created);
+    await this.audit.log({
+      actorType: 'staff',
+      actorId: user.sub,
+      action: 'task.create',
+      entity: 'task',
+      entityId: row.id,
+      diff: { bookingId: row.bookingId, title: row.title },
+    });
 
     if (row.bookingId && row.booking) {
       await this.notifications.notifyBookingClient(row.bookingId, {

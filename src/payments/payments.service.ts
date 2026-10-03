@@ -8,6 +8,7 @@ import { decimalToNumber } from '../common/decimal.util';
 import { AuditService } from '../common/audit.service';
 import { pageMeta, toSkipTake } from '../common/pagination/pagination';
 import { BookingsService } from '../bookings/bookings.service';
+import { DashboardService } from '../dashboard/dashboard.service';
 import { RealtimeEmitter } from '../realtime/realtime.emitter';
 import {
   CreateStripeLinkDto,
@@ -42,6 +43,7 @@ export class PaymentsService {
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly bookings: BookingsService,
+    private readonly dashboard: DashboardService,
     private readonly realtime: RealtimeEmitter,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY', '').trim();
@@ -94,6 +96,7 @@ export class PaymentsService {
     });
 
     this.realtime.emit('payment.recorded', mapPayment(payment));
+    await this.dashboard.invalidateDashboardCache();
 
     return mapPayment(payment);
   }
@@ -181,6 +184,7 @@ export class PaymentsService {
     });
 
     this.realtime.emit('payment.recorded', mapPayment(updated));
+    await this.dashboard.invalidateDashboardCache();
 
     return mapPayment(updated);
   }
@@ -371,6 +375,7 @@ export class PaymentsService {
     });
 
     this.realtime.emit('payment.updated', mapPayment(payment));
+    await this.dashboard.invalidateDashboardCache();
 
     return mapPayment(payment);
   }

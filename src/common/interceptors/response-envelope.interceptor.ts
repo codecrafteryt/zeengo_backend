@@ -3,14 +3,26 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  StreamableFile,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
+import { SKIP_ENVELOPE_KEY } from '../decorators/skip-envelope.decorator';
 
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor {
-  intercept(_context: ExecutionContext, next: CallHandler): Observable<unknown> {
+  constructor(private readonly reflector: Reflector) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const skip = this.reflector.getAllAndOverride<boolean>(SKIP_ENVELOPE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (skip) return next.handle();
+
     return next.handle().pipe(
       map((data) => {
+        if (data instanceof StreamableFile) return data;
         if (
           data &&
           typeof data === 'object' &&

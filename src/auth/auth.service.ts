@@ -243,11 +243,17 @@ export class AuthService {
     }
 
     if (fcmToken) {
-      await this.saveClientFcmToken(
-        booking.client.id,
-        fcmToken,
-        platform ?? 'android',
-      );
+      try {
+        await this.saveClientFcmToken(
+          booking.client.id,
+          fcmToken,
+          platform ?? 'android',
+        );
+      } catch (err) {
+        this.logger.warn(
+          `ZN login FCM persist failed: ${(err as Error).message}`,
+        );
+      }
     }
 
     const tokens = await this.issueTokens({
@@ -465,7 +471,12 @@ export class AuthService {
     });
     if (!client) return;
 
-    const existing = (client.fcmTokens as FcmTokenEntry[]) ?? [];
+    const raw = client.fcmTokens;
+    const existing = Array.isArray(raw)
+      ? (raw as FcmTokenEntry[]).filter(
+          (item) => item && typeof item.token === 'string',
+        )
+      : [];
     const entry: FcmTokenEntry = {
       token,
       platform,

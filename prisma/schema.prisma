@@ -46,6 +46,18 @@ enum BookingRequestStatus {
   rejected
 }
 
+enum DocumentCategory {
+  itinerary
+  voucher
+  receipt
+  booking_document
+  client_document
+  hotel_confirmation
+  transfer_document
+  payment_receipt
+  other
+}
+
 /** How the booking entered the system. */
 enum BookingSource {
   staff
@@ -228,6 +240,7 @@ model StaffUser {
   bookingStaffLinks        BookingStaffLink[]   @relation("BookingStaffLinkStaff")
   bookingStaffLinksCreated BookingStaffLink[]   @relation("BookingStaffLinkCreatedBy")
   masterDataImports        MasterDataImport[]   @relation("MasterDataImportUploadedBy")
+  documentsUploaded        Document[]           @relation("DocumentUploadedBy")
 
   @@index([role])
   @@map("staff_users")
@@ -301,6 +314,7 @@ model Client {
   messagesSent             Message[]                 @relation("MessageSenderClient")
   notifications            Notification[]            @relation("NotificationClient")
   driverReviews            DriverReview[]
+  documents                Document[]
 
   @@map("clients")
 }
@@ -387,6 +401,7 @@ model Booking {
   emailLogs         EmailLog[]
   dayPlans          BookingDayPlan[]
   staffLinks        BookingStaffLink[]
+  documents         Document[]
 
   @@index([status])
   @@index([requestStatus])
@@ -420,6 +435,7 @@ model Payment {
   @@index([status])
   @@index([method])
   @@index([createdAt])
+  @@index([paidAt])
   @@index([collectedBy])
   @@map("payments")
 }
@@ -932,7 +948,38 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
   @@map("audit_logs")
+}
+
+model Document {
+  id              String           @id @default(uuid()) @db.Uuid
+  bookingId       String           @map("booking_id") @db.Uuid
+  clientId        String           @map("client_id") @db.Uuid
+  uploadedBy      String?          @map("uploaded_by") @db.Uuid
+  uploadedByType  ActorType        @default(staff) @map("uploaded_by_type")
+  name            String
+  originalName    String           @map("original_name")
+  mimeType        String           @map("mime_type")
+  size            Int
+  storageKey      String           @unique @map("storage_key")
+  category        DocumentCategory @default(other)
+  description     String?
+  customerVisible Boolean          @default(false) @map("customer_visible")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  booking        Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  client         Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  uploadedByUser StaffUser? @relation("DocumentUploadedBy", fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@index([clientId])
+  @@index([createdAt])
+  @@index([category])
+  @@map("documents")
 }
 
 model Setting {
